@@ -275,7 +275,7 @@ def build() -> Path:
             {"text": f"{index + 1}. {name}", "size": 12.5, "bold": True, "color": BLUE, "space": 1},
             {"text": detail, "size": 10.5, "color": GRAY},
         ])
-    textbox(slide, 7.1, 6.05, 5.55, 0.5,
+    textbox(slide, 7.1, 6.32, 5.55, 0.5,
             [{"text": "★ 这是用架构抑制幻觉，而不是靠提示词祈祷模型别乱说。",
               "size": 12, "bold": True, "color": TEAL}])
     footer(slide, page)
