@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>商情罗盘 MarketCompass</title>
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">◈</span>
+    <div>
+      <h1>商情罗盘 <em>MarketCompass</em></h1>
+      <p>多源公开商情洞察与 AI 选品参谋 · 产业应用类</p>
+    </div>
+  </div>
+  <div class="badges">
+    <span class="badge warn" id="demoBadge">演示数据（模拟）</span>
+    <span class="badge" id="llmBadge">AI 模式：--</span>
+    <span class="badge ghost" id="periodBadge">--</span>
+  </div>
+</header>
+
+<nav class="tabs" id="tabs">
+  <button class="tab active" data-tab="overview">品类大盘</button>
+  <button class="tab" data-tab="market">商品行情分析</button>
+  <button class="tab" data-tab="ranking">商品排行</button>
+  <button class="tab" data-tab="detail">单品档案</button>
+  <button class="tab" data-tab="advisor">AI 选品参谋</button>
+  <button class="tab" data-tab="audit">合规审计</button>
+</nav>
+
+<div class="filterbar">
+  <label>类目
+    <select id="catSelect"><option value="">全部类目</option></select>
+  </label>
+  <label>统计窗口
+    <select id="daysSelect">
+      <option value="28">近 28 天</option>
+      <option value="56" selected>近 56 天</option>
+    </select>
+  </label>
+  <button class="btn" id="refreshBtn">刷新</button>
+  <span class="filter-hint" id="metricNote">SPS 为公开信号推导的销量代理指标，非平台真实销量</span>
+</div>
+
+<main>
+
+  <!-- ============ 品类大盘 ============ -->
+  <section id="sec-overview" class="panel active">
+    <div class="kpis" id="kpiGrid"></div>
+
+    <div class="grid2">
+      <div class="card">
+        <h3>销量代理指标趋势 <small>SPS mid（阴影为不确定区间）</small></h3>
+        <canvas id="chartTrend"></canvas>
+      </div>
+      <div class="card">
+        <h3>价格带销量代理占比</h3>
+        <canvas id="chartBands"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>细分市场排行 <small>按销量代理总量排序，含竞争集中度与供需缺口</small></h3>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>细分</th><th class="num">销量代理</th><th class="num">销售额估计</th>
+              <th class="num">在售商品</th><th class="num">CR5</th><th class="num">HHI</th>
+              <th class="num">需求热度</th><th class="num">供需缺口</th><th class="num">置信度</th>
+            </tr>
+          </thead>
+          <tbody id="subcatTable"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <p class="note">
+      口径说明：SPS（Sales Proxy Score）由「公开累计已售增量 + 评价增量反推 + 公开榜单分位反推」三路信号加权融合，
+      并输出置信区间；所有数值可在「合规审计」页追溯到采集批次。
+    </p>
+  </section>
+
+  <!-- ============ 商品行情分析（自由输入） ============ -->
+  <section id="sec-market" class="panel">
+    <div class="card">
+      <h3>告诉我你想投资的商品 <small>支持商品名、俗称、品牌；系统会自动解析标的并罗列行情数据</small></h3>
+      <div class="toolbar">
+        <input id="mktQuery" type="search" placeholder="例如：保温杯 / 露营装备 / 猫爬架 / 慕思家" style="min-width:340px">
+        <label>预算上限 <input id="mktBudget" type="number" value="150" min="10" step="10"></label>
+        <label>风险偏好
+          <select id="mktRisk">
+            <option value="low">保守</option>
+            <option value="medium" selected>中性</option>
+            <option value="high">激进</option>
+          </select>
+        </label>
+        <button class="btn primary" id="mktRun">开始分析</button>
+      </div>
+      <div class="badge-line" id="mktExamples"></div>
+      <p class="note">解析 → 指标层取数 → 生成行情判断 → 证据链重算校验。无法复现的结论一律拒绝输出。</p>
+    </div>
+    <div id="mktResult"></div>
+  </section>
+
+  <!-- ============ 商品排行 ============ -->
+  <section id="sec-ranking" class="panel">
+    <div class="card">
+      <div class="toolbar">
+        <input id="rankQuery" type="search" placeholder="搜索商品标题 / 品牌，例如：收纳箱">
+        <select id="rankSort">
+          <option value="sps">按销量代理</option>
+          <option value="gms">按销售额估计</option>
+          <option value="growth">按环比增长</option>
+          <option value="price">按价格</option>
+          <option value="confidence">按数据置信度</option>
+        </select>
+        <button class="btn" id="rankSearchBtn">查询</button>
+      </div>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>商品</th><th>平台</th><th class="num">价格</th>
+              <th class="num">销量代理</th><th class="num">销售额估计</th>
+              <th class="num">环比</th><th class="num">置信度</th><th></th>
+            </tr>
+          </thead>
+          <tbody id="rankTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 单品档案 ============ -->
+  <section id="sec-detail" class="panel">
+    <div class="card">
+      <div class="toolbar">
+        <input id="detailQuery" type="search" placeholder="输入商品关键词后查询">
+        <button class="btn" id="detailSearchBtn">查询</button>
+      </div>
+      <div id="detailResults" class="resultlist"></div>
+    </div>
+    <div id="detailBody"></div>
+  </section>
+
+  <!-- ============ AI 选品参谋 ============ -->
+  <section id="sec-advisor" class="panel">
+    <div class="card">
+      <h3>决策参数</h3>
+      <div class="toolbar">
+        <label>目标类目 <select id="advCategory"><option value="">全部类目</option></select></label>
+        <label>单件预算上限 <input id="advBudget" type="number" value="150" min="10" step="10"></label>
+        <label>风险偏好
+          <select id="advRisk">
+            <option value="low">保守</option>
+            <option value="medium" selected>中性</option>
+            <option value="high">激进</option>
+          </select>
+        </label>
+        <label>决策目标
+          <select id="advGoal">
+            <option value="选品" selected>选品</option>
+            <option value="定价">定价</option>
+            <option value="竞品">竞品分析</option>
+          </select>
+        </label>
+        <button class="btn primary" id="advRun">生成建议</button>
+      </div>
+      <p class="note">生成后会对每条引用指标<strong>重算比对</strong>，无法复现的结论一律拒绝输出。</p>
+    </div>
+    <div id="advResult"></div>
+  </section>
+
+  <!-- ============ 合规审计 ============ -->
+  <section id="sec-audit" class="panel">
+    <div class="card">
+      <h3>数据来源与合规台账</h3>
+      <p class="note">
+        本项目仅使用公开可访问数据：遵守 robots.txt、限速采集、不采集个人信息、不绕过登录与风控。
+        每次采集均登记来源、字段范围与判定结果。
+      </p>
+      <div class="tablewrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th><th>数据源</th><th>地址</th><th>采集时间(UTC)</th>
+              <th>robots</th><th>字段范围</th><th class="num">记录数</th><th>批次</th>
+            </tr>
+          </thead>
+          <tbody id="auditTable"></tbody>
+        </table>
+      </div>
+    </div>
+    <div class="card">
+      <h3>跨平台同款对齐（多平台上架的同款簇）</h3>
+      <div class="tablewrap">
+        <table>
+          <thead><tr><th>簇 ID</th><th>标准品</th><th>类目</th><th class="num">上架数</th></tr></thead>
+          <tbody id="clusterTable"></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer class="footer">
+  <span>商情罗盘 MarketCompass v0.1 · 设计阶段 MVP · 零第三方依赖运行</span>
+  <span id="footerStatus">就绪</span>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

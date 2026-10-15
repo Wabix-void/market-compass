@@ -1,0 +1,18 @@
+# 商情罗盘 MarketCompass
+
+# 官方开放平台凭据（绝不提交）
+config/openapi.env
+
+# 数据层（可由 scripts/bootstrap.py 与采集脚本重新生成）
+data/raw/
+data/*.db
+data/*.db-wal
+data/*.db-shm
+
+# 测试与缓存
+tests/.tmp/
+.preview/
+__pycache__/
+*.py[cod]
+.venv/
+venv/
