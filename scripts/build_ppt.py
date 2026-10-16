@@ -320,7 +320,53 @@ def build() -> Path:
               "size": 12.5, "bold": True, "color": TEAL}])
     footer(slide, page)
 
-    # ---------------- 8 数据与合规 ----------------
+    # ---------------- 8 数据源可信度分级 ----------------
+    page += 1
+    slide = blank(prs)
+    slide_title(slide, "数据源决定口径，口径决定可信度",
+                "越权威的来源指标越硬；换源后机制不变，只是口径升级")
+    rows = [
+        ("数据源", "可获取字段", "指标口径 mode", "置信度上限"),
+        ("官方开放平台 API", "真实销量、价格、类目、库存", "api_volume_direct", "0.85"),
+        ("公开页面（≥2 天）", "评价数、榜单排名、店铺类型", "review_increment_basis", "0.46"),
+        ("公开页面（仅 1 天）", "同上", "single_snapshot_stock_basis", "0.46"),
+        ("公开页面（增量不可观测）", "同上（评价数为缓存展示值）",
+         "review_increment_stale_stock_fallback", "0.40"),
+    ]
+    shape = slide.shapes.add_table(len(rows), 4, Inches(0.75), Inches(1.78),
+                                   Inches(11.9), Inches(2.45))
+    table = shape.table
+    for col, width in zip(range(4), (2.7, 3.4, 4.3, 1.5)):
+        table.columns[col].width = Inches(width)
+    for r, row in enumerate(rows):
+        for c, value in enumerate(row):
+            cell = table.cell(r, c)
+            cell.text = value
+            cell.margin_left = Inches(0.08)
+            cell.margin_top = Inches(0.02)
+            para = cell.text_frame.paragraphs[0]
+            set_font(para.runs[0], 10 if r else 11.5, r == 0,
+                     WHITE if r == 0 else (DEEP if c == 0 else GRAY))
+            cell.fill.solid()
+            cell.fill.fore_color.rgb = BLUE if r == 0 else (WHITE if r % 2 else SOFT)
+
+    notes = [
+        ("滚动销量 ≠ 累计销量",
+         "官方接口给的是「近 30 天销量」这类滚动值，当累计值相减会得到无意义的数。"
+         "系统用 sales_semantics 标记隔离，只作规模值，不参与增量推算。", WARN),
+        ("平台之间的精度差异",
+         "淘宝 volume 返回具体数字；拼多多 sales_tip 返回「1万+」区间提示。"
+         "申请凭据时优先选择返回精确值的接口。", TEAL),
+        ("换源不改机制",
+         "无论数据来自公开页还是官方 API，口径、置信度、证据链全部透明可追溯"
+         "—— 这才是可信度的真正保障。", BLUE),
+    ]
+    for index, (title, body, color) in enumerate(notes):
+        card(slide, 0.75 + index * 4.05, 4.55, 3.8, 2.0, title, [body],
+             accent=color, title_size=14, body_size=11)
+    footer(slide, page)
+
+    # ---------------- 9 数据与合规 ----------------
     page += 1
     slide = blank(prs)
     slide_title(slide, "数据源与合规：能抓什么，不抓什么",
@@ -369,8 +415,8 @@ def build() -> Path:
     slide_title(slide, "实测结果：真实数据已跑通",
                 "不是概念演示——真实公开数据已入库并跑完全链路")
     metrics = [
-        ("73", "个真实商品", "苏宁公开搜索页实测入库"),
-        ("19,936", "条日指标", "演示数据集 + 真实数据合计"),
+        ("80", "个真实商品", "苏宁公开搜索页两轮采集去重入库"),
+        ("20,082", "条日指标", "演示数据集 + 两轮真实数据合计"),
         ("44 / 18", "项测试", "端到端冒烟 + 适配器单元测试全通过"),
         ("0", "第三方依赖", "纯 Python 标准库，两条命令复现"),
     ]
@@ -383,15 +429,15 @@ def build() -> Path:
             {"text": detail, "size": 10.5, "color": GRAY, "align": PP_ALIGN.CENTER},
         ])
     card(slide, 0.75, 3.95, 5.85, 2.85, "真实数据下的分析输出（节选）",
-         ["「保温杯」：29 个真实商品，CR5=0.98、HHI=0.193（高度集中）",
+         ["「保温杯」：30 个真实商品，CR5=0.90、HHI=0.170（高度集中）",
           "建议动作 3 条，均为真实商品（JEKO / 希乐 / 炊大皇）",
           "每条建议附证据指标，证据链校验通过",
-          "报告自动标注：环比暂不可用、价格未采集"], accent=BLUE)
-    card(slide, 6.8, 3.95, 5.85, 2.85, "过程中发现并修复的真实问题",
-         ["搜「猫爬架」27 条里 26 条是无关推荐位商品 → 加相关性过滤",
-          "同款不同颜色的 SKU 标题相同 → 建议重复 3 条 → 按前缀归组",
-          "官方 API 返回的是滚动销量 → 不能当累计值相减 → 新增独立口径",
-          "演示数据与真实数据时间轴不一致 → 混合时窗口失效 → 对齐当天"], accent=WARN)
+          "报告自动标注：环比不可用、价格未采集"], accent=BLUE)
+    card(slide, 6.8, 3.95, 5.85, 2.85, "两轮采集中发现并修复的真实问题",
+         ["评价数是缓存展示值，日级增量观测不到 → 新增降级口径（0.40）",
+          "同名类目在演示/真实数据中歧义 → 解析优先真实源并支持切换",
+          "搜「猫爬架」27 条里 26 条是无关推荐位商品 → 加相关性过滤",
+          "官方 API 返回滚动销量 → 不能当累计值相减 → 新增独立口径"], accent=WARN)
     footer(slide, page)
 
     # ---------------- 10 产业价值 ----------------
@@ -438,7 +484,7 @@ def build() -> Path:
     textbox(slide, 1.0, 3.9, 11.3, 2.0, [
         {"text": "商情罗盘 MarketCompass", "size": 17, "bold": True,
          "color": RGBColor(0x9F, 0xC0, 0xFF), "space": 10},
-        {"text": "73 个真实商品已入库   ·   19,936 条日指标   ·   62 项测试通过   ·   0 第三方依赖",
+        {"text": "80 个真实商品已入库   ·   20,082 条日指标   ·   62 项测试通过   ·   0 第三方依赖",
          "size": 13.5, "color": RGBColor(0xC8, 0xD6, 0xF0), "space": 8},
         {"text": "感谢观看，欢迎提问与指正", "size": 13, "color": RGBColor(0x7E, 0x8F, 0xAD)},
     ])
