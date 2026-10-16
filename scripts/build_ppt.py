@@ -112,7 +112,7 @@ def slide_title(slide, title, subtitle=None):
 
 def footer(slide, page: int):
     textbox(slide, 0.6, 6.95, 8, 0.35,
-            [{"text": "商情罗盘 MarketCompass · AI 应用大赛（产业应用类）",
+            [{"text": "商情罗盘 MarketCompass · AI 应用大赛（产业应用 · 数据分析）",
               "size": 9.5, "color": GRAY}])
     textbox(slide, 12.2, 6.95, 0.6, 0.35,
             [{"text": str(page), "size": 9.5, "color": GRAY, "align": PP_ALIGN.RIGHT}])
@@ -145,7 +145,7 @@ def build() -> Path:
          "size": 14, "color": RGBColor(0x8F, 0xB4, 0xF8)},
     ])
     textbox(slide, 0.9, 6.35, 11.5, 0.5,
-            [{"text": "AI 应用大赛 · 产业应用类   |   已跑通真实公开数据采集与端到端验证",
+            [{"text": "AI 应用大赛 · 产业应用 · 数据分析   |   已跑通真实公开数据采集与端到端验证",
               "size": 12, "color": RGBColor(0x7E, 0x8F, 0xAD)}])
 
     # ---------------- 2 痛点 ----------------
@@ -201,8 +201,8 @@ def build() -> Path:
           "输出带证据链的定价锚点、差异化切入点与测款候选"], accent=BLUE)
     card(slide, 6.8, 4.25, 5.85, 2.1, "与现有工具的本质差异",
          ["现有工具：给数据，结论靠人",
-          "通用大模型：给结论，没有数据",
-          "商情罗盘：给结论，且每个数字都能回指标层重算复现"], accent=TEAL)
+          "通用大模型：直接生成结论，因此会编",
+          "商情罗盘：结论必须能回指标层重算复现，编不出来就整体降级"], accent=TEAL)
     footer(slide, page)
 
     # ---------------- 4 架构 ----------------
@@ -428,7 +428,7 @@ def build() -> Path:
         ("80", "个真实商品", "苏宁公开搜索页两轮采集去重入库"),
         ("20,082", "条日指标", "演示数据集 + 两轮真实数据合计"),
         ("35 / 18", "项测试", "端到端冒烟 + 适配器单元测试全通过"),
-        ("0", "第三方依赖", "纯 Python 标准库，两条命令复现"),
+        ("0", "第三方依赖", "纯 Python 标准库 · MIT 开源"),
     ]
     for index, (value, unit, detail) in enumerate(metrics):
         x = 0.75 + index * 3.05

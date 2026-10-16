@@ -38,10 +38,12 @@ SOURCE_META = {
     },
 }
 
+# 注意：audit_collect_log **不在此列** —— 审计台账必须跨 bootstrap 保留。
+# 否则「每次采集都可追溯」的承诺会被下一次重建抹掉，真实源的采集历史将永久丢失。
 TABLES = [
     "fact_metric_daily", "fact_review_agg", "fact_search_heat", "fact_signal_daily",
     "dim_product_cluster_map", "dim_product_cluster", "dim_product", "dim_category",
-    "dim_platform", "dim_keyword", "ai_claim", "audit_collect_log",
+    "dim_platform", "dim_keyword", "ai_claim",
 ]
 
 
@@ -177,6 +179,14 @@ def load_reviews_and_heat(conn: sqlite3.Connection, sources: list[str]) -> dict[
 
 def write_audit(conn: sqlite3.Connection, source: str, url: str, fields: str,
                 records: int, batch_id: str, robots_allowed: int = 1) -> None:
+    """写入采集审计。
+
+    审计台账跨 bootstrap 保留（不在 TABLES 重置清单里），因此这里的策略是：
+    - 真实数据源（suning / openapi_*）每次追加，形成可追溯的采集历史 —— 这正是审计的意义；
+    - 演示数据源（seed）每次重建都会重新生成，若也追加会迅速堆满噪声，故只保留最新一条。
+    """
+    if source == "seed":
+        conn.execute("DELETE FROM audit_collect_log WHERE source = ?", [source])
     conn.execute(
         "INSERT INTO audit_collect_log(source, url, fetched_at, robots_allowed, fields, records, batch_id)"
         " VALUES (?,?,?,?,?,?,?)",

@@ -172,26 +172,53 @@ C:\Users\wbx\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.ex
 
 ---
 
-## 8. 存档时的文件清单
+## 8. 文件清单（2026-10-17 核对）
 
 ```
 market-compass/
-├── README.md                                  # 已更新到 v0.1 + 自由输入行情分析
+├── README.md / LICENSE（MIT）/ 使用说明.txt
+├── 1-配置官方API凭据.bat / 2-启动看板.bat / 3-采集真实数据.bat / 4-重新初始化数据.bat
+├── config/openapi.env.example               # 凭据模板（真实凭据不入库）
 ├── docs/
-│   ├── 01-project-design.md                   # 设计说明（含 F4b 行情分析）
-│   └── 02-progress-handoff.md                 # 本存档
+│   ├── 01-project-design.md                 # 设计说明（赛道已细化为「产业应用 · 数据分析」）
+│   ├── 02-progress-handoff.md               # 本存档
+│   └── 参赛材料/                            # 00 提交清单 / 01 作品简介 / 02 演示PPT
+│                                            # 03 视频脚本 / 04 补充说明 / 05 GitHub 指南
 ├── apps/
-│   ├── api/server.py                          # 13 个接口
-│   └── web/{index.html,app.js,styles.css}     # 6 个页签
+│   ├── api/server.py                        # 13 个接口
+│   └── web/{index.html,app.js,styles.css}   # 6 个页签
 ├── services/
 │   ├── collector/
-│   │   ├── seed_source.py                     # 模拟源（已跑通）
-│   │   └── suning_search.py                   # ⚠️ 真实源（已写完，未运行）
-│   ├── etl/pipeline.py                        # 多源 ETL（已验证）
+│   │   ├── seed_source.py                   # 演示数据源（已跑通）
+│   │   ├── suning_search.py                 # ✅ 真实源（两轮采集共 80 商品）
+│   │   ├── openapi_source.py                # 官方 API 适配器（淘宝/京东/拼多多）
+│   │   └── raw_store.py                     # 原始层落盘（各适配器共用）
+│   ├── etl/pipeline.py                      # 多源 ETL + 审计台账持久化
 │   ├── analytics/{queries.py,market_analysis.py}
 │   └── ai/{advisor.py,llm_provider.py}
 ├── infra/sql/schema.sql
-├── scripts/{bootstrap.py,run_server.py}
-├── tests/smoke_test.py                        # 35 项断言
-└── data/                                      # marketcompass.db + raw/{seed}/
+├── scripts/                                 # bootstrap / run_server / collect_suning
+│                                            # setup_openapi / check_openapi / collect_openapi
+│                                            # build_ppt / check_deck_layout
+├── tests/{smoke_test.py,test_openapi.py}    # 35 + 18 = 53 项断言
+└── data/                                    # marketcompass.db + raw/{seed,suning}
 ```
+
+## 9. 2026-10-17 按「问题清单与交接文档」完成的修复
+
+来源：`E:\dsh-workspace\MarketCompass-问题清单与交接.md`
+
+| 项 | 修复内容 | 验证方式 |
+|---|---|---|
+| **审计台账被清空**（真缺陷） | `audit_collect_log` 从 `TABLES` 重置清单移除；`write_audit` 对真实源追加、对演示源只保留最新一条 | 连跑 3 次 bootstrap：suning 记录 1→2→3→4 累积，seed 恒为 1 条 |
+| 赛道细化 | 全部改为「产业应用 · 数据分析」 | `01-project-design.md`、PPT 封面与页脚 |
+| 差异化表述 | 补充说明新增第三节；PPT 第 3 页卡片改写为「通用大模型直接生成结论，因此会编 / 商情罗盘要求结论必须能回指标层重算复现」 | PPT 渲染逐页目视确认 |
+| 开源立场 | 补充说明第二节新增"零依赖 ≠ 不用开源"的澄清；PPT 第 10 页标注 MIT | — |
+| 应用价值量化 | 补充说明新增第六节：引用公开数据（中国卖家近 55% 销量来自 1–2 年内新品、某卖家推新 ACOS 126.8%）+ 自测性能（单次完整分析 391 ms / 18 KB、大盘 76 ms、排行 96 ms） | 性能为本次实测 |
+| 可复用性与生态价值 | 补充说明第九节新增"可复用性""生态与合作价值"两块 | — |
+| 作品简介字数 | 三版全部压到字符口径内：A 590 汉字 / 795 字符，B 205 / 270，C 72 / 96；标题改为标注实测值 | 脚本统计三版均达标 |
+| LICENSE 署名 | `MarketCompass contributors` → `Wabix-void` | — |
+| 设计文档状态过时 | 「业务实现待开发」→「全链路已实现…53 项自动化测试通过」 | — |
+
+**未做（需人决策）**：AI 是否接真实模型（路线 A / B）、录制演示视频、正式赛题公布后的定位调整。
+
