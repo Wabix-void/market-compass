@@ -16,6 +16,16 @@ from pptx.enum.text import MSO_ANCHOR, PP_ALIGN
 from pptx.oxml.ns import qn
 from pptx.util import Inches, Pt
 
+
+def _force_utf8_console() -> None:
+    """Windows 中文控制台默认 GBK，直接输出 ✓/✗ 会抛 UnicodeEncodeError，这里统一兜底。"""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+_force_utf8_console()
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_PATH = PROJECT_ROOT / "docs" / "参赛材料" / "02-演示PPT.pptx"
 
@@ -375,7 +385,7 @@ def build() -> Path:
         ("数据源", "接入方式", "实测结果"),
         ("苏宁易购", "公开搜索结果页", "✅ 稳定解析 SKU/标题/卖点/评价数/店铺/排名"),
         ("官方开放平台", "淘宝 / 京东 / 拼多多授权接口", "✅ 适配器与配置向导完成，待凭据启用"),
-        ("演示数据集", "本地合成", "✅ 4 大类 15 子类 / 356 商品 / 19,936 条日指标"),
+        ("演示数据集", "本地合成", "✅ 4 大类 15 子类 / 356 条目 / 19,936 条日指标"),
     ]
     shape = slide.shapes.add_table(len(src_rows), 3, Inches(0.75), Inches(1.8),
                                    Inches(6.4), Inches(1.9))
@@ -417,7 +427,7 @@ def build() -> Path:
     metrics = [
         ("80", "个真实商品", "苏宁公开搜索页两轮采集去重入库"),
         ("20,082", "条日指标", "演示数据集 + 两轮真实数据合计"),
-        ("44 / 18", "项测试", "端到端冒烟 + 适配器单元测试全通过"),
+        ("35 / 18", "项测试", "端到端冒烟 + 适配器单元测试全通过"),
         ("0", "第三方依赖", "纯 Python 标准库，两条命令复现"),
     ]
     for index, (value, unit, detail) in enumerate(metrics):
@@ -484,7 +494,7 @@ def build() -> Path:
     textbox(slide, 1.0, 3.9, 11.3, 2.0, [
         {"text": "商情罗盘 MarketCompass", "size": 17, "bold": True,
          "color": RGBColor(0x9F, 0xC0, 0xFF), "space": 10},
-        {"text": "80 个真实商品已入库   ·   20,082 条日指标   ·   62 项测试通过   ·   0 第三方依赖",
+        {"text": "80 个真实商品已入库   ·   20,082 条日指标   ·   53 项测试通过   ·   0 第三方依赖",
          "size": 13.5, "color": RGBColor(0xC8, 0xD6, 0xF0), "space": 8},
         {"text": "感谢观看，欢迎提问与指正", "size": 13, "color": RGBColor(0x7E, 0x8F, 0xAD)},
     ])

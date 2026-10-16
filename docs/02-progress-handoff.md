@@ -29,7 +29,7 @@ python scripts/bootstrap.py
 # 2) 启动服务与看板
 python scripts/run_server.py          # → http://127.0.0.1:8787
 
-# 3) 端到端冒烟测试（需服务已启动，44 项断言）
+# 3) 端到端冒烟测试（需服务已启动，35 项断言）
 python tests/smoke_test.py
 ```
 
@@ -52,10 +52,10 @@ C:\Users\wbx\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.ex
 | ETL：清洗 + 跨平台同款对齐 + SPS 指标 | `services/etl/pipeline.py` | bootstrap + 冒烟测试 | ✅ 183 簇 / 115 跨平台 / 19,936 指标 |
 | 分析层查询 | `services/analytics/queries.py` | 冒烟测试 | ✅ |
 | 自由输入行情分析 | `services/analytics/market_analysis.py` | 冒烟测试 | ✅ 保温杯/露营装备/猫爬架/保鲜盒 全部命中 |
-| AI 报告 + 证据链重算校验 | `services/ai/advisor.py` | 冒烟测试 | ✅ 44/44 断言通过 |
+| AI 报告 + 证据链重算校验 | `services/ai/advisor.py` | 冒烟测试 | ✅ 35/35 断言通过 |
 | REST API（标准库 HTTP） | `apps/api/server.py` | 冒烟测试 | ✅ 13 个接口 |
 | 前端看板（原生 HTML/Canvas） | `apps/web/` | node --check 语法 + 6 页签对应 | ✅ |
-| 端到端冒烟测试 | `tests/smoke_test.py` | 实际运行 | ✅ 44/44 |
+| 端到端冒烟测试 | `tests/smoke_test.py` | 实际运行 | ✅ 35/35 |
 
 ---
 
@@ -192,6 +192,6 @@ market-compass/
 │   └── ai/{advisor.py,llm_provider.py}
 ├── infra/sql/schema.sql
 ├── scripts/{bootstrap.py,run_server.py}
-├── tests/smoke_test.py                        # 44 项断言
+├── tests/smoke_test.py                        # 35 项断言
 └── data/                                      # marketcompass.db + raw/{seed}/
 ```

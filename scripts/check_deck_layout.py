@@ -17,6 +17,16 @@ from pathlib import Path
 
 from pptx import Presentation
 
+
+def _force_utf8_console() -> None:
+    """Windows 中文控制台默认 GBK，直接输出 ✓/✗ 会抛 UnicodeEncodeError，这里统一兜底。"""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+_force_utf8_console()
+
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT = PROJECT_ROOT / "docs" / "参赛材料" / "02-演示PPT.pptx"
 EMU_IN = 914400.0

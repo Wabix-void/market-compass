@@ -20,6 +20,16 @@ if str(PROJECT_ROOT) not in sys.path:
 from services.collector import openapi_source as api  # noqa: E402
 
 
+def _force_utf8_console() -> None:
+    """Windows 中文控制台默认 GBK，直接输出 ✓/✗ 会抛 UnicodeEncodeError，这里统一兜底。"""
+    for stream in (sys.stdout, sys.stderr):
+        if hasattr(stream, "reconfigure"):
+            stream.reconfigure(encoding="utf-8", errors="replace")
+
+
+_force_utf8_console()
+
+
 def mask(value: str, keep: int = 4) -> str:
     if not value:
         return "（未设置）"
