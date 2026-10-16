@@ -7,6 +7,7 @@ const state = {
   trend: [],
   bands: [],
   lastAdvice: null,
+  marketCategoryId: null,
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -449,6 +450,8 @@ function bindChips(container) {
   container.querySelectorAll('.chip.link').forEach((el) => {
     el.addEventListener('click', () => {
       $('#mktQuery').value = el.dataset.word;
+      // data-cat 存在时直接锁定标的，避免同名类目（演示数据 vs 真实数据）再次歧义
+      state.marketCategoryId = el.dataset.cat || null;
       switchTab('market');
       runMarketAnalysis();
     });
@@ -606,7 +609,8 @@ function renderMarketData(snapshot) {
 function renderMarketResult(data) {
   if (!data.matched) {
     const candidates = (data.candidates || []).map((item) =>
-      `<span class="chip link" data-word="${esc(item.label)}">${esc(item.label)} · ${item.score}</span>`).join('');
+      `<span class="chip link" data-word="${esc(item.label)}" data-cat="${esc(item.category_id || '')}">`
+      + `${esc(item.label)} · ${esc(item.source_label || '')} · ${item.products || 0} 款 (${item.score})</span>`).join('');
     $('#mktResult').innerHTML = `
       <div class="card">
         <h3>当前数据未覆盖「${esc(data.query)}」</h3>
@@ -622,16 +626,25 @@ function renderMarketResult(data) {
   const best = data.resolution.best;
   const kindLabel = { subcategory: '细分类目', parent: '一级类目', brand: '品牌' }[best.kind] || best.kind;
 
+  // 同名类目可能来自不同数据源，把其它候选也列出来让用户显式切换
+  const others = (data.resolution.candidates || [])
+    .filter((item) => item.category_id && item.category_id !== snapshot.category.category_id
+      && item.kind !== 'brand')
+    .map((item) =>
+      `<span class="chip link" data-word="${esc(item.label)}" data-cat="${esc(item.category_id)}">`
+      + `换用：${esc(item.label)} · ${esc(item.source_label || '')} · ${item.products || 0} 款</span>`).join('');
+
   $('#mktResult').innerHTML = `
     <div class="card">
       <h3>解析结果</h3>
       <div class="badge-line">
-        <span class="chip ok">命中「${esc(best.label)}」（${esc(kindLabel)}）</span>
+        <span class="chip ok">命中「${esc(best.label)}」（${esc(kindLabel)}${best.source_label ? ' · ' + esc(best.source_label) : ''}）</span>
         <span class="chip">匹配方式：${esc(best.reason)}</span>
         <span class="chip">匹配度：${best.score}</span>
         <span class="chip">分析范围：${esc(snapshot.category.name)}（${snapshot.listing_count} 个条目）</span>
         <span class="chip">窗口：${esc(snapshot.period.join(' ~ '))}</span>
       </div>
+      ${others ? `<div class="badge-line">${others}</div>` : ''}
       <p class="note">${esc(data.resolution.message)}</p>
     </div>
     ${renderMarketData(snapshot)}
@@ -640,6 +653,7 @@ function renderMarketResult(data) {
   $('#mktResult').querySelectorAll('tr.clickable').forEach((tr) => {
     tr.addEventListener('click', () => { switchTab('detail'); loadDetail(tr.dataset.id); });
   });
+  bindChips($('#mktResult'));
   renderReport(report, '#mktReport');
 }
 
@@ -657,6 +671,7 @@ async function runMarketAnalysis() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         query,
+        category_id: state.marketCategoryId || null,
         budget: Number($('#mktBudget').value || 150),
         risk: $('#mktRisk').value,
         goal: '行情分析',
@@ -748,6 +763,8 @@ $('#detailQuery').addEventListener('keydown', (event) => { if (event.key === 'En
 $('#advRun').addEventListener('click', runAdvisor);
 $('#mktRun').addEventListener('click', runMarketAnalysis);
 $('#mktQuery').addEventListener('keydown', (event) => { if (event.key === 'Enter') runMarketAnalysis(); });
+// 用户手动改动输入内容时，解除之前锁定的标的，重新走文本解析
+$('#mktQuery').addEventListener('input', () => { state.marketCategoryId = null; });
 window.addEventListener('resize', () => {
   if (document.querySelector('.tab.active').dataset.tab === 'overview') {
     drawTrend($('#chartTrend'), state.trend);

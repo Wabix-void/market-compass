@@ -352,16 +352,28 @@ def compute_metrics(conn: sqlite3.Connection) -> int:
                     review_stock = float(item["review_cumulative"] or 0.0)
                     if index == 0:
                         # 单日快照：没有历史可比，只能给量级估计，置信度上限压到 0.46
-                        sps_mid = (review_stock / rate) / STOCK_WINDOW_DAYS if rate > 0 else 0.0
                         mode = "single_snapshot_stock_basis"
+                        sps_mid = (review_stock / rate) / STOCK_WINDOW_DAYS if rate > 0 else 0.0
                         basis = (f"无已售信号：评价存量 {review_stock:.0f} ÷ 类目评价转化率 {rate:.4f}"
                                  f" ÷ 假设累积窗口 {STOCK_WINDOW_DAYS} 天")
-                    else:
-                        sps_mid = ((delta_review or 0.0) / rate) if rate > 0 else 0.0
+                        confidence_cap = 0.46
+                        completeness = 0.66 if item["review_cumulative"] is not None else 0.33
+                    elif (delta_review or 0.0) > 0:
                         mode = "review_increment_basis"
-                        basis = f"无已售信号：评价增量 {delta_review or 0.0:.0f} ÷ 转化率 {rate:.4f}"
-                    confidence_cap = 0.46
-                    completeness = 0.66 if item["review_cumulative"] is not None else 0.33
+                        sps_mid = (delta_review / rate) if rate > 0 else 0.0
+                        basis = f"无已售信号：评价增量 {delta_review:.0f} ÷ 转化率 {rate:.4f}"
+                        confidence_cap = 0.46
+                        completeness = 0.66
+                    else:
+                        # 增量本期为 0：公开页评价数是缓存展示值（如 "9000+"），日内不更新。
+                        # 不编造增量，退化为存量估计并进一步压低置信度。
+                        mode = "review_increment_stale_stock_fallback"
+                        sps_mid = (review_stock / rate) / STOCK_WINDOW_DAYS if rate > 0 else 0.0
+                        basis = (f"评价增量本期为 0（公开页评价数为缓存展示值），退化为存量估计："
+                                 f"评价存量 {review_stock:.0f} ÷ 转化率 {rate:.4f}"
+                                 f" ÷ 假设窗口 {STOCK_WINDOW_DAYS} 天")
+                        confidence_cap = 0.40
+                        completeness = 0.50
                     window_value = 0.0
             else:
                 review_implied = ((delta_review or 0.0) / rate) if rate > 0 else 0.0

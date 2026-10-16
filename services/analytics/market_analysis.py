@@ -41,23 +41,59 @@ def _bigrams(text: str) -> set[str]:
     return {text[i:i + 2] for i in range(len(text) - 1)}
 
 
+DEMO_PLATFORMS = ("p_tmall", "p_jd", "p_pdd")   # 演示数据源使用的平台
+_DEMO_SQL = ",".join("?" for _ in DEMO_PLATFORMS)
+
+
+def _source_label(products: int, demo_products: int) -> str:
+    if products <= 0:
+        return "无商品"
+    if demo_products == products:
+        return "演示数据"
+    if demo_products == 0:
+        return "真实数据"
+    return "混合来源"
+
+
 def build_lexicon(conn: sqlite3.Connection) -> list[dict]:
-    """词典：细分类目 / 父类目 / 品牌的名称与别名。"""
+    """词典：细分类目 / 父类目 / 品牌的名称与别名，并标注数据来源与商品数。
+
+    同名类目可能来自不同数据源（例如演示数据的「保温杯」与苏宁真实数据的「保温杯」），
+    因此带上 products / is_demo / source_label，供 resolve 排序与前端区分展示。
+    """
     entries: list[dict] = []
     for row in conn.execute(
-        "SELECT category_id, parent_id, name, level, aliases_json FROM dim_category"
+        "SELECT c.category_id, c.parent_id, c.name, c.level, c.aliases_json,"
+        "  (SELECT COUNT(*) FROM dim_product p WHERE p.category_id = c.category_id) AS products,"
+        f"  (SELECT COUNT(*) FROM dim_product p WHERE p.category_id = c.category_id"
+        f"     AND p.platform_id IN ({_DEMO_SQL})) AS demo_products"
+        " FROM dim_category c",
+        DEMO_PLATFORMS,
     ):
         aliases = json.loads(row["aliases_json"] or "[]")
         kind = "subcategory" if row["level"] == 2 else "parent"
+        products = int(row["products"] or 0)
+        source = _source_label(products, int(row["demo_products"] or 0))
         for term in {row["name"], *aliases}:
             entries.append({
                 "term": term, "norm": _normalize(term), "kind": kind,
                 "category_id": row["category_id"], "label": row["name"],
+                "products": products, "is_demo": source == "演示数据",
+                "source_label": source,
             })
-    for row in conn.execute("SELECT DISTINCT brand FROM dim_product WHERE brand IS NOT NULL"):
+    for row in conn.execute(
+        "SELECT brand, COUNT(*) AS products,"
+        f"  SUM(CASE WHEN platform_id IN ({_DEMO_SQL}) THEN 1 ELSE 0 END) AS demo_products"
+        " FROM dim_product WHERE brand IS NOT NULL GROUP BY brand",
+        DEMO_PLATFORMS,
+    ):
+        products = int(row["products"] or 0)
+        source = _source_label(products, int(row["demo_products"] or 0))
         entries.append({
             "term": row["brand"], "norm": _normalize(row["brand"]), "kind": "brand",
             "category_id": None, "label": row["brand"],
+            "products": products, "is_demo": source == "演示数据",
+            "source_label": source,
         })
     return entries
 
@@ -93,13 +129,18 @@ def resolve(conn: sqlite3.Connection, text: str, limit: int = 5) -> dict:
             "label": entry["label"],
             "kind": entry["kind"],
             "category_id": entry["category_id"],
+            "products": entry.get("products", 0),
+            "source_label": entry.get("source_label", ""),
+            "is_demo": entry.get("is_demo", False),
             "score": round(min(raw * KIND_WEIGHT[entry["kind"]], 1.0), 3),
             "reason": "完全匹配" if raw == 1.0 else (
                 "输入包含该词" if entry["norm"] in query else
                 "该词包含输入" if query in entry["norm"] else "文本相似"),
         })
 
-    results.sort(key=lambda item: item["score"], reverse=True)
+    # 同分时优先"真实数据"（其次商品数多的），避免同名类目命中演示数据
+    results.sort(key=lambda item: (item["score"], not item["is_demo"], item["products"]),
+                 reverse=True)
     # 同一类目只保留最高分条目
     seen: set[str] = set()
     deduped: list[dict] = []
@@ -120,7 +161,8 @@ def resolve(conn: sqlite3.Connection, text: str, limit: int = 5) -> dict:
         "best": best if matched else None,
         "candidates": deduped,
         "message": (
-            f"已解析为「{best['label']}」（{best['reason']}，匹配度 {best['score']:.2f}）"
+            f"已解析为「{best['label']}」（{best.get('source_label', '')}，"
+            f"{best['reason']}，匹配度 {best['score']:.2f}）"
             if matched else
             "当前数据未覆盖该商品。你可以在下方候选里选择最接近的标的，或等待接入更多公开数据源。"
         ),

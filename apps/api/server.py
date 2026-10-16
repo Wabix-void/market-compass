@@ -189,7 +189,8 @@ class Handler(BaseHTTPRequestHandler):
 
     def _handle_market_analysis(self, payload: dict) -> None:
         query = str(payload.get("query", "")).strip()
-        if not query:
+        category_id = str(payload.get("category_id") or "").strip() or None
+        if not query and not category_id:
             self._send_error_json("query 不能为空")
             return
         conn = pipeline.connect()
@@ -200,6 +201,7 @@ class Handler(BaseHTTPRequestHandler):
                 budget=float(payload.get("budget", 150)),
                 risk=str(payload.get("risk", "medium")),
                 goal=str(payload.get("goal", "行情分析")),
+                category_id=category_id,
             )
             self._send_json(result)
         except Exception as exc:  # noqa: BLE001

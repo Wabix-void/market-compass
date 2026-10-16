@@ -265,12 +265,17 @@ def advise(conn: sqlite3.Connection, category_id: str | None = None, budget: flo
     concentration = "高度集中" if cr5 >= 0.6 or hhi >= 0.15 else "中等分散"
     trend_word = "上升" if growth > 0.02 else ("持平" if growth > -0.02 else "下滑")
 
-    growth_text = ("环比暂不可用（仅 1 天快照）" if stock_only
+    growth_text = ("环比不可用（评价增量本期不可观测）"
+                   if "review_increment_stale_stock_fallback" in modes
+                   else "环比暂不可用（仅 1 天快照）" if stock_only
                    else f"环比{'增长' if growth >= 0 else '下降'} {abs(growth) * 100:.1f}%")
     summary = (f"{category_name}{period_label}销量代理总量 {overview['total_sps']:,.0f} 件当量，"
                f"{growth_text}，"
                f"竞争结构 {concentration}（CR5={cr5:.2f}、HHI={hhi:.3f}）。"
-               + ("【口径提示】当前数据来自公开页面单日快照，指标按评价存量估算，"
+               + ("【口径提示】公开页评价数为缓存展示值，本期增量不可观测，"
+                  "指标已退化为存量估计（置信度上限 0.40）。"
+                  if "review_increment_stale_stock_fallback" in modes else
+                  "【口径提示】当前数据来自公开页面单日快照，指标按评价存量估算，"
                   "趋势结论需累积 ≥2 天数据后才成立。" if stock_only else ""))
 
     conclusions = [
@@ -336,6 +341,9 @@ def advise(conn: sqlite3.Connection, category_id: str | None = None, budget: flo
     ]
     if stock_only:
         limitations.insert(0, (
+            "公开页评价数是缓存展示值，本期增量不可观测：指标按「评价存量 ÷ 转化率 ÷ 假设窗口 "
+            f"{STOCK_WINDOW_DAYS} 天」估算，环比与趋势不可用（置信度上限 0.40）。"
+            if "review_increment_stale_stock_fallback" in modes else
             "当前仅有单日公开快照：指标按「评价存量 ÷ 类目评价转化率 ÷ 假设窗口 "
             f"{STOCK_WINDOW_DAYS} 天」估算，只适合判断量级，环比与趋势暂不可用。"
         ))
@@ -408,10 +416,32 @@ def _brand_main_category(conn: sqlite3.Connection, brand: str) -> str | None:
 
 
 def analyze_market_query(conn: sqlite3.Connection, query: str, budget: float = 150.0,
-                         risk: str = "medium", goal: str = "行情分析") -> dict:
-    """用户自由输入商品名 → 解析标的 → 罗列行情数据 → 生成行情分析并校验证据链。"""
+                         risk: str = "medium", goal: str = "行情分析",
+                         category_id: str | None = None) -> dict:
+    """用户自由输入商品名 → 解析标的 → 罗列行情数据 → 生成行情分析并校验证据链。
+
+    `category_id` 非空时跳过文本解析，直接分析指定标的——用于用户在候选列表里
+    明确切换数据源（例如同名类目「保温杯」在演示数据与真实数据里各有一个）。
+    """
     provider = get_provider()
-    resolution = market_analysis.resolve(conn, query)
+
+    if category_id:
+        row = conn.execute("SELECT category_id, name FROM dim_category WHERE category_id = ?",
+                           [category_id]).fetchone()
+        if row is None:
+            return {"query": query, "matched": False,
+                    "message": f"指定的标的 {category_id} 不存在",
+                    "candidates": [], "generated_by": provider.name}
+        resolution = {
+            "query": query, "matched": True,
+            "best": {"term": query, "label": row["name"], "kind": "subcategory",
+                     "category_id": category_id, "score": 1.0,
+                     "reason": "用户指定标的", "source_label": "指定"},
+            "candidates": [],
+            "message": f"按指定标的「{row['name']}」分析",
+        }
+    else:
+        resolution = market_analysis.resolve(conn, query)
 
     if not resolution["matched"]:
         return {
@@ -487,7 +517,9 @@ def analyze_market_query(conn: sqlite3.Connection, query: str, budget: float = 1
     concentration = "高度集中" if (cr5 >= 0.6 or hhi >= 0.15) else "中等分散"
     trend_word = "上升" if growth > 0.02 else ("持平" if growth > -0.02 else "下滑")
 
-    growth_text = ("环比暂不可用（仅 1 天快照）" if stock_only
+    growth_text = ("环比不可用（评价增量本期不可观测）"
+                   if "review_increment_stale_stock_fallback" in modes
+                   else "环比暂不可用（仅 1 天快照）" if stock_only
                    else f"环比{'增长' if growth >= 0 else '下降'} {abs(growth) * 100:.1f}%")
     price_text = (f"平均价格 {snapshot['avg_price']:.0f} 元"
                   if snapshot["avg_price"] else "价格未采集（公开页面异步加载）")
@@ -499,7 +531,10 @@ def analyze_market_query(conn: sqlite3.Connection, query: str, budget: float = 1
         f"{growth_text}，"
         f"竞争结构{concentration}（CR5={cr5:.2f}、HHI={hhi:.3f}），"
         f"{price_text}。"
-        + ("【口径提示】当前数据来自公开页面单日快照，指标按评价存量估算，"
+        + ("【口径提示】公开页评价数为缓存展示值，本期增量不可观测，"
+           "指标已退化为存量估计（置信度上限 0.40）。"
+           if "review_increment_stale_stock_fallback" in modes else
+           "【口径提示】当前数据来自公开页面单日快照，指标按评价存量估算，"
            "趋势与环比需累积 ≥2 天数据后才成立。" if stock_only else "")
     )
 
@@ -587,6 +622,9 @@ def analyze_market_query(conn: sqlite3.Connection, query: str, budget: float = 1
     ]
     if stock_only:
         limitations.insert(0, (
+            "公开页评价数是缓存展示值，本期增量不可观测：指标按「评价存量 ÷ 转化率 ÷ 假设窗口 "
+            f"{STOCK_WINDOW_DAYS} 天」估算，环比与趋势不可用（置信度上限 0.40）。"
+            if "review_increment_stale_stock_fallback" in modes else
             "当前仅有单日公开快照：指标按「评价存量 ÷ 类目评价转化率 ÷ 假设窗口 "
             f"{STOCK_WINDOW_DAYS} 天」估算，只适合判断量级，环比与趋势暂不可用。"
         ))
