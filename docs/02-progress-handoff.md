@@ -200,7 +200,7 @@ market-compass/
 ├── scripts/                                 # bootstrap / run_server / collect_suning
 │                                            # setup_openapi / check_openapi / collect_openapi
 │                                            # build_ppt / check_deck_layout
-├── tests/{smoke_test.py,test_openapi.py,test_ai_grounding.py}  # 35 + 18 + 9 = 62 项断言
+├── tests/{smoke_test.py,test_openapi.py,test_ai_grounding.py}  # 35 + 18 + 10 = 63 项断言
 └── data/                                    # marketcompass.db + raw/{seed,suning}
 ```
 

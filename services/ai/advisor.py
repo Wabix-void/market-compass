@@ -746,21 +746,47 @@ def _traceable(value: float, pool: list[float], tol: float = 0.02) -> bool:
     return False
 
 
+# 指标字段 → 中文名。回答里出现 cr5 / sps / listing_count 这类字段名，对卖家毫无意义，
+# 因此**传给模型时就换成中文表述**，并要求它照此表达。
+METRIC_LABELS = {
+    "total_sps": "销量代理总量",
+    "total_gms": "销售额估计",
+    "growth": "环比增长",
+    "cr5": "前五名商品集中度",
+    "hhi": "竞争集中度指数",
+    "brand_cr3": "前三品牌份额",
+    "avg_confidence": "平均数据置信度",
+    "listing_count": "在售商品数",
+    "days": "统计天数",
+    "heat_index": "需求热度指数",
+    "gap_index": "供需缺口指数",
+    "avg_price": "平均价格",
+    "price_coverage": "价格覆盖率",
+    "main_band_share": "主力价格带销量占比",
+    "negative_keyword_share": "负面评价关键词占比",
+    "subcategory_count": "细分类目数",
+}
+
+# 形如 CR5 / Top12 的指标编号属于标识符，不是数据。抽取数字前先剥离，
+# 避免模型规范地写「CR5」反被当成编造数字。
+_METRIC_TOKEN_RE = re.compile(r"(?:CR|Top|TOP|cr|top)\s?\d+")
+
+
 def _metric_notes(snapshot: dict) -> list[str]:
     """把「数据口径」翻译成模型能听懂的话。
 
-    没有这一段，模型看到 total_gms=0.0 会理解成"没有销售额"、
-    看到 growth=0.0 会理解成"没有增长"，于是只能回答"无法判断"。
+    没有这一段，模型看到「销售额估计」为 0 会理解成"没有销售额"、
+    看到「环比增长」为 0 会理解成"没有增长"，于是只能回答"无法判断"。
     """
     notes: list[str] = []
     if not snapshot.get("avg_price"):
-        notes.append("avg_price / total_gms 为 0 表示该数据源未采集价格，不代表没有销售额")
+        notes.append("「销售额估计」「平均价格」为 0 表示该数据源未采集价格，不代表没有销售额")
     if not snapshot.get("growth"):
-        notes.append("growth 为 0 表示当前窗口不足以计算环比（例如仅单日快照），不代表没有增长")
+        notes.append("「环比增长」为 0 表示当前窗口不足以计算环比（例如仅单日快照），不代表没有增长")
     if not snapshot.get("negative_keyword_share"):
-        notes.append("negative_keyword_share 为 0 表示该数据源未提供评价关键词，不代表没有负面评价")
+        notes.append("「负面评价关键词占比」为 0 表示该数据源未提供评价关键词，不代表没有负面评价")
     if snapshot.get("price_coverage") == 0:
-        notes.append("price_coverage 为 0 表示完全没有采到价格")
+        notes.append("「价格覆盖率」为 0 表示完全没有采到价格")
     if not notes:
         notes.append("各指标均已采集可用")
     return notes
@@ -770,13 +796,12 @@ def verify_answer_numbers(payload: dict, question: str, answer: str) -> dict:
     """抽出回答中的所有数字，逐个回「模型看到的数据」溯源。
 
     溯源基准就是**发给模型的 payload**：凡是模型看得到的数字，答出来都不算命造；
-    它看不到却又说出来的数字才会被标红。这比拿指标快照当基准更准确 ——
-    payload 里还包含品类名、时间窗口、口径说明、Top 商品等上下文。
+    它看不到却又说出来的数字才会被标红。
 
     这是本方案的核心校验：**不要求模型不撒谎，但要求它撒的谎能被抓住。**
 
     两类豁免（都不放宽对"数值型编造"的检查）：
-    - 字段名里的数字（CR3 / CR5 / Top12）：是指标标识符，不是数据；
+    - 指标编号（CR5 / Top12）：抽取前整体剥离，它是标识符不是数据；
     - 用户提问里的数字（"5 万预算"）：由用户提供，不属于模型生成的内容。
     """
     pool: list[float] = []
@@ -789,7 +814,8 @@ def verify_answer_numbers(payload: dict, question: str, answer: str) -> dict:
             pass
 
     citations, unverified = [], []
-    for raw in _NUM_RE.findall(answer or ""):
+    # 先剥离「CR5 / Top12」这类指标编号，再抽数字
+    for raw in _NUM_RE.findall(_METRIC_TOKEN_RE.sub(" ", answer or "")):
         try:
             value = float(raw.replace(",", ""))
         except ValueError:
@@ -841,33 +867,39 @@ def answer_question(conn: sqlite3.Connection, query: str, question: str,
     # 让回答有判断力，同时保持"不得引入新数字"的硬约束。
     metrics = {key: value for key, value in snapshot.items()
                if isinstance(value, (int, float)) and not isinstance(value, bool)}
+    # 键名一律用中文：模型看到英文键名就会照抄，回答里满是 cr5 / listing_count 这类黑话
     payload = {
-        "category": (snapshot.get("category") or {}).get("name"),
-        "period": snapshot.get("period"),
-        "window_days": snapshot.get("days"),
-        "metrics": metrics,
-        "metric_notes": _metric_notes(snapshot),
-        "top_products": [
-            {"title": str(item.get("title", ""))[:32], "sps": item.get("sps"),
-             "price": item.get("price"), "growth": item.get("growth")}
+        "品类": (snapshot.get("category") or {}).get("name"),
+        "统计窗口": snapshot.get("period"),
+        "窗口天数": snapshot.get("days"),
+        "指标": [
+            {"名称": METRIC_LABELS.get(key, key), "数值": value}
+            for key, value in metrics.items()
+        ],
+        "口径说明": _metric_notes(snapshot),
+        "销量代理前五商品": [
+            {"商品": str(item.get("title", ""))[:32], "销量代理值": item.get("sps"),
+             "价格": item.get("price"), "环比": item.get("growth")}
             for item in (snapshot.get("top_products") or [])[:5]
         ],
-        "top_pain_points": [
+        "主要负面评价关键词": [
             item.get("keyword")
             for item in ((snapshot.get("keywords") or {}).get("negative") or [])[:5]
         ],
-        "brand_shares": [
-            {"brand": item.get("brand"), "share": item.get("share")}
+        "品牌份额": [
+            {"品牌": item.get("brand"), "份额": item.get("share")}
             for item in (snapshot.get("brand_shares") or [])[:5]
         ],
-        "question": question,
+        "卖家的问题": question,
     }
     system = (
         "你是电商选品分析师，正在为一位准备入场的中小卖家做判断。\n"
         "硬约束：只能使用给定数据中的数字，不得引入新数字、不得修改数值、不得预测具体销量。\n"
-        "但同时要给出有价值的解读：这个类目的竞争格局意味着什么、这位卖家该注意什么、"
+        "表述要求：**用中文指标名称**（如「前五名商品集中度」「在售商品数」），"
+        "绝对不要出现英文字段名（如 cr5、sps、listing_count、growth）。\n"
+        "同时要给出有价值的解读：这个类目的竞争格局意味着什么、这位卖家该注意什么、"
         "下一步建议做什么。不要因为「不能预测」就只说「无法判断」。\n"
-        "注意 metric_notes 解释了口径：某些指标为 0 是因为数据源未提供，"
+        "注意「口径说明」解释了口径：某些指标为 0 是因为数据源未提供，"
         "不代表该品类没有市场，不要据此下否定结论。\n"
         "输出 3-4 句中文：先给结论，再给依据（引用具体指标名与数值），最后给一条可执行建议。"
     )

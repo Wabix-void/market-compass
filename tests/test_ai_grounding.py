@@ -91,12 +91,21 @@ class FailPathTests(unittest.TestCase):
         self.assertIn("12.5", result["unverified"])
 
     def test_all_numbers_are_accounted_for(self):
-        """抽出规则必须完备：citations + unverified = 回答中出现的数字总数。"""
+        """抽出规则必须完备：citations + unverified = 剥离指标编号后的数字总数。"""
         answer = "CR5 为 0.8979，增长 12.5%，共 30 款，预算 8 万。"
         result = advisor.verify_answer_numbers(SNAPSHOT, "分析一下", answer)
-        self.assertEqual(
-            len(result["citations"]) + len(result["unverified"]),
-            len(advisor._NUM_RE.findall(answer)))
+        expected = len(advisor._NUM_RE.findall(advisor._METRIC_TOKEN_RE.sub(" ", answer)))
+        self.assertEqual(len(result["citations"]) + len(result["unverified"]), expected)
+
+    def test_metric_token_stripped_before_extraction(self):
+        """CR5 / Top12 这类指标编号整体剥离，其中的数字不应进入结果。"""
+        result = advisor.verify_answer_numbers(
+            SNAPSHOT, "集中度？", "CR5 为 0.8979，Top12 商品里 30 款在售。")
+        for token in ("5", "12"):
+            self.assertNotIn(token, result["citations"], f"{token} 不该被当成数据")
+            self.assertNotIn(token, result["unverified"], f"{token} 不该被判为编造")
+        self.assertIn("0.8979", result["citations"])
+        self.assertIn("30", result["citations"])
 
 
 if __name__ == "__main__":

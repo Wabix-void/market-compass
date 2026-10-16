@@ -316,8 +316,8 @@ def build() -> Path:
     textbox(slide, 1.05, 3.5, 5.3, 2.6, [
         {"text": "实测 · 正常路径", "size": 14, "bold": True, "color": TEAL, "space": 6},
         {"text": "问：我只有 5 万预算，适合做这个类目吗？", "size": 11.5, "color": DEEP, "space": 5},
-        {"text": "答：CR5 高达 0.8979、brand_cr3 为 1.0，头部几乎垄断可见份额，"
-                 "不建议正面硬拼；建议先用小预算测细分场景……",
+        {"text": "答：前五名商品集中度高达 0.8979、前三品牌份额为 1.0，"
+                 "头部几乎垄断可见份额，不建议正面硬拼……",
          "size": 11, "color": GRAY, "space": 5},
         {"text": "✅ 校验：回答中 11 个数字全部可溯源（citations）",
          "size": 11.5, "bold": True, "color": TEAL},
@@ -478,7 +478,7 @@ def build() -> Path:
     metrics = [
         ("80", "个真实商品", "苏宁公开搜索页两轮采集去重入库"),
         ("20,082", "条日指标", "演示数据集 + 两轮真实数据合计"),
-        ("62", "项测试", "35 端到端 + 18 适配器 + 9 AI 溯源"),
+        ("63", "项测试", "35 端到端 + 18 适配器 + 10 AI 溯源"),
         ("0", "第三方依赖", "纯 Python 标准库 · MIT 开源"),
     ]
     for index, (value, unit, detail) in enumerate(metrics):
@@ -545,7 +545,7 @@ def build() -> Path:
     textbox(slide, 1.0, 3.9, 11.3, 2.0, [
         {"text": "商情罗盘 MarketCompass", "size": 17, "bold": True,
          "color": RGBColor(0x9F, 0xC0, 0xFF), "space": 10},
-        {"text": "80 个真实商品已入库   ·   20,082 条日指标   ·   62 项测试通过   ·   0 第三方依赖",
+        {"text": "80 个真实商品已入库   ·   20,082 条日指标   ·   63 项测试通过   ·   0 第三方依赖",
          "size": 13.5, "color": RGBColor(0xC8, 0xD6, 0xF0), "space": 8},
         {"text": "感谢观看，欢迎提问与指正", "size": 13, "color": RGBColor(0x7E, 0x8F, 0xAD)},
     ])
