@@ -10,6 +10,7 @@
 from __future__ import annotations
 
 import json
+import re
 import sqlite3
 import uuid
 from datetime import datetime, timezone
@@ -681,6 +682,159 @@ def analyze_market_query(conn: sqlite3.Connection, query: str, budget: float = 1
         "resolution": resolution,
         "snapshot": snapshot,
         "report": report,
+    }
+
+
+# ---------------------------------------------------------------------------
+# AI 追问：模型作答 + 数字溯源校验
+#
+# 这是本项目「用架构抑制幻觉」主张的第二层：证据链校验（verify_evidence）管的是
+# **报告生成**，这里管的是**自由问答**——让模型真正承担一件模板原理上做不到的事
+# （回答任意问题），同时保留"每个数字都能回指标层复现"这条底线。
+# ---------------------------------------------------------------------------
+_NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
+
+
+def _collect_numbers(obj, out: list[float]) -> None:
+    """递归收集快照里的所有数值，形成「可溯源数值池」。"""
+    if isinstance(obj, bool):
+        return
+    if isinstance(obj, (int, float)):
+        out.append(float(obj))
+    elif isinstance(obj, dict):
+        for value in obj.values():
+            _collect_numbers(value, out)
+    elif isinstance(obj, (list, tuple)):
+        for value in obj:
+            _collect_numbers(value, out)
+
+
+def _collect_key_numbers(obj, out: list[float]) -> None:
+    """收集**字段名**里的数字（CR3 / CR5 / Top12 这类指标标识符）。
+
+    这些数字是指标名称的一部分，不是模型生成的数据，必须豁免 ——
+    否则模型只要规范地提到"CR5"，就会被误判成编造数字。
+    这是本校验器唯一的两类豁免之一（另一类是用户提问里的数字），
+    都不放宽对"数值型编造"的检查。
+    """
+    if isinstance(obj, dict):
+        for key, value in obj.items():
+            for raw in _NUM_RE.findall(str(key)):
+                try:
+                    out.append(float(raw.replace(",", "")))
+                except ValueError:
+                    pass
+            _collect_key_numbers(value, out)
+    elif isinstance(obj, (list, tuple)):
+        for value in obj:
+            _collect_key_numbers(value, out)
+
+
+def _traceable(value: float, pool: list[float], tol: float = 0.02) -> bool:
+    """判断一个数字能否在指标层找到出处（含百分比写法的等价匹配）。
+
+    容差 2%：模型会把 0.8979 写成 0.90 或 89.8%，必须能匹配上；
+    同时 0.8979 与 0.95 不能被误判为同一个数。
+    """
+    for candidate in pool:
+        base = max(abs(candidate), 1e-9)
+        if abs(value - candidate) / base <= tol:
+            return True
+        as_percent = candidate * 100
+        if 0 <= candidate <= 1 and abs(value - as_percent) / max(abs(as_percent), 1e-9) <= tol:
+            return True
+    return False
+
+
+def verify_answer_numbers(snapshot: dict, question: str, answer: str) -> dict:
+    """抽出回答中的所有数字，逐个回指标层溯源。
+
+    这是本方案的核心校验：**不要求模型不撒谎，但要求它撒的谎能被抓住。**
+
+    两类豁免（都不放宽对"数值型编造"的检查）：
+    - 字段名里的数字（CR3 / CR5 / Top12）：是指标标识符，不是数据；
+    - 用户提问里的数字（"5 万预算"）：由用户提供，不属于模型生成的内容。
+    """
+    pool: list[float] = []
+    _collect_numbers(snapshot, pool)
+    _collect_key_numbers(snapshot, pool)
+    for raw in _NUM_RE.findall(question or ""):
+        try:
+            pool.append(float(raw.replace(",", "")))
+        except ValueError:
+            pass
+
+    citations, unverified = [], []
+    for raw in _NUM_RE.findall(answer or ""):
+        try:
+            value = float(raw.replace(",", ""))
+        except ValueError:
+            continue
+        (citations if _traceable(value, pool) else unverified).append(raw)
+    return {
+        "citations": citations,          # 可溯源数字
+        "unverified": unverified,        # 指标层找不到出处的数字（前端标红）
+        "verified": not unverified,
+        "metric_pool_size": len(pool),
+    }
+
+
+def answer_question(conn: sqlite3.Connection, query: str, question: str,
+                    category_id: str | None = None) -> dict:
+    """基于已算好的指标回答用户追问，并对回答中的每个数字做溯源校验。
+
+    与项目整体立场一致：指标快照是唯一事实来源，模型不得引入新数字、不得做预测。
+    模型答完后**事后校验**——抽出回答里的所有数字逐个回指标层比对，
+    找不到出处的放进 `unverified`，由前端显著标红。
+    """
+    provider = get_provider()
+
+    # 复用现有分析链路取指标快照，保证"追问的就是用户刚看到的那份数据"
+    analysis = analyze_market_query(conn, query, category_id=category_id)
+    if not analysis.get("matched"):
+        return {
+            "matched": False,
+            "answer": None,
+            "generated_by": provider.name,
+            "message": analysis.get("message", "标的未覆盖，无法追问"),
+            "candidates": analysis.get("candidates", []),
+        }
+
+    snapshot = analysis.get("snapshot") or {}
+
+    # 未配置模型时优雅降级，而不是报错 —— 产品在无 AI 状态下依然完整可用
+    if not provider.available():
+        return {
+            "matched": True,
+            "answer": None,
+            "generated_by": provider.name,
+            "note": ("追问功能需要配置大模型；当前为离线模板模式，"
+                     "行情分析与证据链功能不受影响。"),
+        }
+
+    metrics = {key: value for key, value in snapshot.items()
+               if isinstance(value, (int, float)) and not isinstance(value, bool)}
+    system = ("你是电商选品分析师。只能使用用户提供的指标数值，禁止引入任何新数字，"
+              "禁止修改给定数值，禁止做销量预测，禁止把估算说成事实。"
+              "回答控制在 3 句以内，用中文。")
+    user = json.dumps({"question": question, "metrics": metrics}, ensure_ascii=False)
+
+    answer = provider.complete(system, user)
+    if not answer:
+        return {
+            "matched": True,
+            "answer": None,
+            "generated_by": provider.name,
+            "note": "模型调用失败，请检查网络或凭据配置。",
+        }
+
+    check = verify_answer_numbers(snapshot, question, answer)
+
+    return {
+        "matched": True,
+        "answer": answer.strip(),
+        "generated_by": provider.name,
+        **check,
     }
 
 

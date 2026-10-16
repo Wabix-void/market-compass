@@ -93,11 +93,28 @@ class Handler(BaseHTTPRequestHandler):
             self._send_error_json("invalid json body")
             return
 
+        if parsed.path == "/api/diag":
+            # 运维诊断：一句话回答"当前跑的是哪个版本 / AI 开没开 / 端口对不对"。
+            # （排查端口被残留进程占用时极其有用，故保留为正式端点）
+            provider = get_provider()
+            self._send_json({
+                "module_file": __file__,
+                "server_version": self.server_version,
+                "port": self.server.server_address[1],
+                "has_ask_handler": hasattr(self, "_handle_ask"),
+                "llm_provider": provider.name,
+                "llm_available": provider.available(),
+                "received_path": self.path,
+            })
+            return
         if parsed.path == "/api/advice":
             self._handle_advice(payload)
             return
         if parsed.path == "/api/market-analysis":
             self._handle_market_analysis(payload)
+            return
+        if parsed.path == "/api/ask":
+            self._handle_ask(payload)
             return
         self._send_error_json("not found", status=404)
 
@@ -204,6 +221,28 @@ class Handler(BaseHTTPRequestHandler):
                 category_id=category_id,
             )
             self._send_json(result)
+        except Exception as exc:  # noqa: BLE001
+            self._send_error_json(f"{type(exc).__name__}: {exc}", status=500)
+        finally:
+            conn.close()
+
+    def _handle_ask(self, payload: dict) -> None:
+        """AI 追问：基于已算好的指标作答，并对回答中的数字做溯源校验。
+
+        未配置模型时返回 note（而非报错），前端会给出友好提示 ——
+        行情分析与证据链功能不受影响，AI 是增强而非依赖。
+        """
+        query = str(payload.get("query") or "").strip()
+        question = str(payload.get("question") or "").strip()
+        category_id = str(payload.get("category_id") or "").strip() or None
+        if not query or not question:
+            self._send_error_json("缺少参数 query 或 question")
+            return
+
+        conn = pipeline.connect()
+        try:
+            self._send_json(advisor.answer_question(conn, query, question,
+                                                    category_id=category_id))
         except Exception as exc:  # noqa: BLE001
             self._send_error_json(f"{type(exc).__name__}: {exc}", status=500)
         finally:

@@ -655,6 +655,7 @@ function renderMarketResult(data) {
   });
   bindChips($('#mktResult'));
   renderReport(report, '#mktReport');
+  showAskCard();
 }
 
 async function runMarketAnalysis() {
@@ -682,6 +683,73 @@ async function runMarketAnalysis() {
   } catch (error) {
     $('#mktResult').innerHTML = `<div class="card"><p class="neg">分析失败：${esc(error.message)}</p></div>`;
     status('分析失败');
+  }
+}
+
+/* ---------------- AI 追问（模型作答 + 数字溯源校验） ---------------- */
+function showAskCard() {
+  $('#mktAskCard').style.display = 'block';
+  $('#askResult').innerHTML = '';
+  $('#askInput').value = '';
+}
+
+function renderAsk(data) {
+  if (!data.matched) {
+    return `<p class="note">${esc(data.message || '标的未覆盖，无法追问')}</p>`;
+  }
+  if (!data.answer) {
+    return `<p class="note">${esc(data.note || '模型暂时不可用')}</p>`;
+  }
+  const chip = (text, ok) => `<span class="chip ${ok ? 'ok' : 'bad'}">${esc(text)}</span>`;
+
+  const trace = (data.citations || []).length
+    ? `<div class="note">✅ 可溯源数字（${data.citations.length} 个）：
+         ${data.citations.map((n) => `<code>${esc(n)}</code>`).join(' ')}</div>`
+    : '';
+  const bad = (data.unverified || []).length
+    ? `<div class="note" style="color:#c0392b">❌ 无法溯源的数字（${data.unverified.length} 个）：
+         ${data.unverified.map((n) => `<code>${esc(n)}</code>`).join(' ')}
+         —— 这些数字在指标层找不到出处</div>`
+    : '';
+
+  return `
+    <div class="badge-line">
+      ${chip('生成方式：' + data.generated_by, true)}
+      ${chip(data.verified ? '数字溯源校验：通过' : '数字溯源校验：发现可疑数字', data.verified)}
+    </div>
+    <p>${esc(data.answer)}</p>
+    ${trace}
+    ${bad}`;
+}
+
+async function runAsk() {
+  const question = $('#askInput').value.trim();
+  const query = $('#mktQuery').value.trim();
+  if (!question) {
+    $('#askResult').innerHTML = '<p class="note">请先输入你的问题</p>';
+    return;
+  }
+  if (!query) {
+    $('#askResult').innerHTML = '<p class="note">请先在上方完成一次行情分析</p>';
+    return;
+  }
+  status('模型作答并校验数字溯源…');
+  $('#askResult').innerHTML = '<p class="note">模型正在作答，随后会逐个校验回答中的数字…</p>';
+  try {
+    const data = await api('/api/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        query,
+        question,
+        category_id: state.marketCategoryId || null,
+      }),
+    });
+    $('#askResult').innerHTML = renderAsk(data);
+    status('就绪');
+  } catch (error) {
+    $('#askResult').innerHTML = `<p class="note">追问失败：${esc(error.message)}</p>`;
+    status('追问失败');
   }
 }
 
@@ -765,6 +833,8 @@ $('#mktRun').addEventListener('click', runMarketAnalysis);
 $('#mktQuery').addEventListener('keydown', (event) => { if (event.key === 'Enter') runMarketAnalysis(); });
 // 用户手动改动输入内容时，解除之前锁定的标的，重新走文本解析
 $('#mktQuery').addEventListener('input', () => { state.marketCategoryId = null; });
+$('#askRun').addEventListener('click', runAsk);
+$('#askInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') runAsk(); });
 window.addEventListener('resize', () => {
   if (document.querySelector('.tab.active').dataset.tab === 'overview') {
     drawTrend($('#chartTrend'), state.trend);

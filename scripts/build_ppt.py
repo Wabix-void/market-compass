@@ -290,7 +290,57 @@ def build() -> Path:
               "size": 12, "bold": True, "color": TEAL}])
     footer(slide, page)
 
-    # ---------------- 7 关键技术 1：SPS ----------------
+    # ---------------- 7 AI 追问 + 数字溯源 ----------------
+    page += 1
+    slide = blank(prs)
+    slide_title(slide, "AI 追问：模型作答，数字必须能溯源",
+                "追问是模板原理上做不到的事 —— 让模型答，但每个数字事后都要回指标层核对")
+    ask_steps = [
+        ("用户追问", "「5 万预算适合做这个类目吗？」"),
+        ("取指标快照", "复用行情分析已算好的指标，模型只见数字"),
+        ("模型作答", "只组织语言，禁止引入新数字、禁止预测"),
+        ("逐数字回查", "抽出回答中所有数字，回指标层比对（容差 2%）"),
+    ]
+    for index, (name, detail) in enumerate(ask_steps):
+        x = 0.75 + index * 3.05
+        rect(slide, x, 1.75, 2.78, 1.35, WHITE, MSO_SHAPE.ROUNDED_RECTANGLE, LINE)
+        rect(slide, x, 1.75, 2.78, 0.36, BLUE if index % 2 == 0 else TEAL, MSO_SHAPE.RECTANGLE)
+        textbox(slide, x, 1.78, 2.78, 0.3,
+                [{"text": f"{index + 1}. {name}", "size": 12.5, "bold": True,
+                  "color": WHITE, "align": PP_ALIGN.CENTER}], anchor=MSO_ANCHOR.MIDDLE)
+        textbox(slide, x + 0.15, 2.2, 2.48, 0.85,
+                [{"text": detail, "size": 10.5, "color": GRAY}])
+
+    rect(slide, 0.75, 3.35, 5.85, 2.9, WHITE, MSO_SHAPE.ROUNDED_RECTANGLE, LINE)
+    rect(slide, 0.75, 3.35, 0.075, 2.9, TEAL, MSO_SHAPE.RECTANGLE)
+    textbox(slide, 1.05, 3.5, 5.3, 2.6, [
+        {"text": "实测 · 正常路径", "size": 14, "bold": True, "color": TEAL, "space": 6},
+        {"text": "问：我只有 5 万预算，适合做这个类目吗？", "size": 11.5, "color": DEEP, "space": 5},
+        {"text": "答：该指标显示 CR5 为 0.8979、brand_cr3 为 1.0，集中度很高，"
+                 "但 avg_confidence 仅 0.433……", "size": 11, "color": GRAY, "space": 5},
+        {"text": "✅ 校验：回答中 8 个数字全部可溯源（citations）",
+         "size": 11.5, "bold": True, "color": TEAL},
+    ])
+
+    rect(slide, 6.8, 3.35, 5.85, 2.9, WHITE, MSO_SHAPE.ROUNDED_RECTANGLE, LINE)
+    rect(slide, 6.8, 3.35, 0.075, 2.9, WARN, MSO_SHAPE.RECTANGLE)
+    textbox(slide, 7.1, 3.5, 5.3, 2.6, [
+        {"text": "实测 · 故意让模型自由估算", "size": 14, "bold": True, "color": WARN, "space": 6},
+        {"text": "把提示词换成「可以基于常识推断」后，模型回答：",
+         "size": 11.5, "color": DEEP, "space": 5},
+        {"text": "「CR5 达 89.8%、品牌 CR3 为 100%，月销约 2.5 万件，"
+                 "建议首期备货预算 15-25 万元。」", "size": 11, "color": GRAY, "space": 5},
+        {"text": "❌ 校验：2.5 / 15 / 25 在指标层找不到出处，当场标红",
+         "size": 11.5, "bold": True, "color": WARN},
+    ])
+
+    rect(slide, 0.75, 6.32, 11.9, 0.5, LIGHT, MSO_SHAPE.ROUNDED_RECTANGLE)
+    textbox(slide, 1.0, 6.32, 11.4, 0.5,
+            [{"text": "★ 我们不要求模型不撒谎，我们要求它撒的谎能被抓住 —— 这一题现场可以演示。",
+              "size": 12, "bold": True, "color": BLUE}], anchor=MSO_ANCHOR.MIDDLE)
+    footer(slide, page)
+
+    # ---------------- 8 关键技术 1：SPS ----------------
     page += 1
     slide = blank(prs)
     slide_title(slide, "关键技术一：销量代理指标 SPS",
@@ -427,7 +477,7 @@ def build() -> Path:
     metrics = [
         ("80", "个真实商品", "苏宁公开搜索页两轮采集去重入库"),
         ("20,082", "条日指标", "演示数据集 + 两轮真实数据合计"),
-        ("35 / 18", "项测试", "端到端冒烟 + 适配器单元测试全通过"),
+        ("62", "项测试", "35 端到端 + 18 适配器 + 9 AI 溯源"),
         ("0", "第三方依赖", "纯 Python 标准库 · MIT 开源"),
     ]
     for index, (value, unit, detail) in enumerate(metrics):
@@ -494,7 +544,7 @@ def build() -> Path:
     textbox(slide, 1.0, 3.9, 11.3, 2.0, [
         {"text": "商情罗盘 MarketCompass", "size": 17, "bold": True,
          "color": RGBColor(0x9F, 0xC0, 0xFF), "space": 10},
-        {"text": "80 个真实商品已入库   ·   20,082 条日指标   ·   53 项测试通过   ·   0 第三方依赖",
+        {"text": "80 个真实商品已入库   ·   20,082 条日指标   ·   62 项测试通过   ·   0 第三方依赖",
          "size": 13.5, "color": RGBColor(0xC8, 0xD6, 0xF0), "space": 8},
         {"text": "感谢观看，欢迎提问与指正", "size": 13, "color": RGBColor(0x7E, 0x8F, 0xAD)},
     ])

@@ -19,6 +19,30 @@ import urllib.request
 from typing import Protocol
 
 
+def _read_env(name: str) -> str:
+    """读取配置项：先查进程环境变量，Windows 下再兜底查用户级注册表。
+
+    为什么需要兜底：环境变量往往是在某些长驻进程（IDE、终端宿主、Agent 运行时）启动之后才
+    设置的，由这些进程派生的子进程仍然只继承旧环境，于是出现"明明配好了却显示 offline-template"
+    的假故障。注册表 `HKCU\\Environment` 保存的是最新值，查它可以消除这一层不确定性。
+    """
+    value = os.environ.get(name, "")
+    if value:
+        return value
+    if os.name == "nt":
+        try:
+            import winreg
+        except ImportError:
+            return ""
+        try:
+            with winreg.OpenKey(winreg.HKEY_CURRENT_USER, "Environment") as key:
+                stored, _ = winreg.QueryValueEx(key, name)
+                return str(stored or "")
+        except OSError:
+            return ""
+    return ""
+
+
 class LLMProvider(Protocol):
     name: str
 
@@ -44,9 +68,9 @@ class OpenAICompatProvider:
 
     def __init__(self, base_url: str | None = None, api_key: str | None = None,
                  model: str | None = None, timeout: int = 60) -> None:
-        self.base_url = (base_url or os.environ.get("MARKETCOMPASS_LLM_BASE_URL", "")).rstrip("/")
-        self.api_key = api_key or os.environ.get("MARKETCOMPASS_LLM_API_KEY", "")
-        self.model = model or os.environ.get("MARKETCOMPASS_LLM_MODEL", "")
+        self.base_url = (base_url or _read_env("MARKETCOMPASS_LLM_BASE_URL")).rstrip("/")
+        self.api_key = api_key or _read_env("MARKETCOMPASS_LLM_API_KEY")
+        self.model = model or _read_env("MARKETCOMPASS_LLM_MODEL")
         self.timeout = timeout
         self.name = f"openai-compat:{self.model or 'unset'}"
 

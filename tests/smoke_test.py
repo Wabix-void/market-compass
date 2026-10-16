@@ -8,12 +8,15 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
 
-BASE = "http://127.0.0.1:8787"
+# 服务地址可通过环境变量覆盖，便于在备用端口上跑回归
+# （例如主端口被残留进程占用时）
+BASE = os.environ.get("MARKETCOMPASS_BASE", "http://127.0.0.1:8787")
 RESULTS: list[tuple[str, bool, str]] = []
 
 
