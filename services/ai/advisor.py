@@ -748,22 +748,23 @@ def _traceable(value: float, pool: list[float], tol: float = 0.02) -> bool:
 
 # 指标字段 → 中文名。回答里出现 cr5 / sps / listing_count 这类字段名，对卖家毫无意义，
 # 因此**传给模型时就换成中文表述**，并要求它照此表达。
+# 括号里标注方向：否则模型会自行解释（实测它曾把 HHI 低说成"更集中"，恰好说反）。
 METRIC_LABELS = {
     "total_sps": "销量代理总量",
     "total_gms": "销售额估计",
     "growth": "环比增长",
-    "cr5": "前五名商品集中度",
-    "hhi": "竞争集中度指数",
-    "brand_cr3": "前三品牌份额",
-    "avg_confidence": "平均数据置信度",
+    "cr5": "前五名商品集中度（越高越集中）",
+    "hhi": "竞争集中度指数（越高越集中）",
+    "brand_cr3": "前三品牌份额（越高越集中）",
+    "avg_confidence": "平均数据置信度（越高越可信）",
     "listing_count": "在售商品数",
     "days": "统计天数",
-    "heat_index": "需求热度指数",
-    "gap_index": "供需缺口指数",
+    "heat_index": "需求热度指数（越高需求越旺）",
+    "gap_index": "供需缺口指数（越高缺口越大）",
     "avg_price": "平均价格",
-    "price_coverage": "价格覆盖率",
+    "price_coverage": "价格覆盖率（越高价格信息越全）",
     "main_band_share": "主力价格带销量占比",
-    "negative_keyword_share": "负面评价关键词占比",
+    "negative_keyword_share": "负面评价关键词占比（越高负面越多）",
     "subcategory_count": "细分类目数",
 }
 
