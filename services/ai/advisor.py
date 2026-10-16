@@ -746,8 +746,32 @@ def _traceable(value: float, pool: list[float], tol: float = 0.02) -> bool:
     return False
 
 
-def verify_answer_numbers(snapshot: dict, question: str, answer: str) -> dict:
-    """抽出回答中的所有数字，逐个回指标层溯源。
+def _metric_notes(snapshot: dict) -> list[str]:
+    """把「数据口径」翻译成模型能听懂的话。
+
+    没有这一段，模型看到 total_gms=0.0 会理解成"没有销售额"、
+    看到 growth=0.0 会理解成"没有增长"，于是只能回答"无法判断"。
+    """
+    notes: list[str] = []
+    if not snapshot.get("avg_price"):
+        notes.append("avg_price / total_gms 为 0 表示该数据源未采集价格，不代表没有销售额")
+    if not snapshot.get("growth"):
+        notes.append("growth 为 0 表示当前窗口不足以计算环比（例如仅单日快照），不代表没有增长")
+    if not snapshot.get("negative_keyword_share"):
+        notes.append("negative_keyword_share 为 0 表示该数据源未提供评价关键词，不代表没有负面评价")
+    if snapshot.get("price_coverage") == 0:
+        notes.append("price_coverage 为 0 表示完全没有采到价格")
+    if not notes:
+        notes.append("各指标均已采集可用")
+    return notes
+
+
+def verify_answer_numbers(payload: dict, question: str, answer: str) -> dict:
+    """抽出回答中的所有数字，逐个回「模型看到的数据」溯源。
+
+    溯源基准就是**发给模型的 payload**：凡是模型看得到的数字，答出来都不算命造；
+    它看不到却又说出来的数字才会被标红。这比拿指标快照当基准更准确 ——
+    payload 里还包含品类名、时间窗口、口径说明、Top 商品等上下文。
 
     这是本方案的核心校验：**不要求模型不撒谎，但要求它撒的谎能被抓住。**
 
@@ -756,8 +780,8 @@ def verify_answer_numbers(snapshot: dict, question: str, answer: str) -> dict:
     - 用户提问里的数字（"5 万预算"）：由用户提供，不属于模型生成的内容。
     """
     pool: list[float] = []
-    _collect_numbers(snapshot, pool)
-    _collect_key_numbers(snapshot, pool)
+    _collect_numbers(payload, pool)
+    _collect_key_numbers(payload, pool)
     for raw in _NUM_RE.findall(question or ""):
         try:
             pool.append(float(raw.replace(",", "")))
@@ -812,12 +836,42 @@ def answer_question(conn: sqlite3.Connection, query: str, question: str,
                      "行情分析与证据链功能不受影响。"),
         }
 
+    # 只给模型标量指标是不够的：它看不到品类、看不到口径，会把"未采集"的 0
+    # 误读成"没有市场"，于是只能回答"无法判断"。这里把上下文一并给它，
+    # 让回答有判断力，同时保持"不得引入新数字"的硬约束。
     metrics = {key: value for key, value in snapshot.items()
                if isinstance(value, (int, float)) and not isinstance(value, bool)}
-    system = ("你是电商选品分析师。只能使用用户提供的指标数值，禁止引入任何新数字，"
-              "禁止修改给定数值，禁止做销量预测，禁止把估算说成事实。"
-              "回答控制在 3 句以内，用中文。")
-    user = json.dumps({"question": question, "metrics": metrics}, ensure_ascii=False)
+    payload = {
+        "category": (snapshot.get("category") or {}).get("name"),
+        "period": snapshot.get("period"),
+        "window_days": snapshot.get("days"),
+        "metrics": metrics,
+        "metric_notes": _metric_notes(snapshot),
+        "top_products": [
+            {"title": str(item.get("title", ""))[:32], "sps": item.get("sps"),
+             "price": item.get("price"), "growth": item.get("growth")}
+            for item in (snapshot.get("top_products") or [])[:5]
+        ],
+        "top_pain_points": [
+            item.get("keyword")
+            for item in ((snapshot.get("keywords") or {}).get("negative") or [])[:5]
+        ],
+        "brand_shares": [
+            {"brand": item.get("brand"), "share": item.get("share")}
+            for item in (snapshot.get("brand_shares") or [])[:5]
+        ],
+        "question": question,
+    }
+    system = (
+        "你是电商选品分析师，正在为一位准备入场的中小卖家做判断。\n"
+        "硬约束：只能使用给定数据中的数字，不得引入新数字、不得修改数值、不得预测具体销量。\n"
+        "但同时要给出有价值的解读：这个类目的竞争格局意味着什么、这位卖家该注意什么、"
+        "下一步建议做什么。不要因为「不能预测」就只说「无法判断」。\n"
+        "注意 metric_notes 解释了口径：某些指标为 0 是因为数据源未提供，"
+        "不代表该品类没有市场，不要据此下否定结论。\n"
+        "输出 3-4 句中文：先给结论，再给依据（引用具体指标名与数值），最后给一条可执行建议。"
+    )
+    user = json.dumps(payload, ensure_ascii=False)
 
     answer = provider.complete(system, user)
     if not answer:
@@ -828,7 +882,7 @@ def answer_question(conn: sqlite3.Connection, query: str, question: str,
             "note": "模型调用失败，请检查网络或凭据配置。",
         }
 
-    check = verify_answer_numbers(snapshot, question, answer)
+    check = verify_answer_numbers(payload, question, answer)
 
     return {
         "matched": True,

@@ -316,9 +316,10 @@ def build() -> Path:
     textbox(slide, 1.05, 3.5, 5.3, 2.6, [
         {"text": "实测 · 正常路径", "size": 14, "bold": True, "color": TEAL, "space": 6},
         {"text": "问：我只有 5 万预算，适合做这个类目吗？", "size": 11.5, "color": DEEP, "space": 5},
-        {"text": "答：该指标显示 CR5 为 0.8979、brand_cr3 为 1.0，集中度很高，"
-                 "但 avg_confidence 仅 0.433……", "size": 11, "color": GRAY, "space": 5},
-        {"text": "✅ 校验：回答中 8 个数字全部可溯源（citations）",
+        {"text": "答：CR5 高达 0.8979、brand_cr3 为 1.0，头部几乎垄断可见份额，"
+                 "不建议正面硬拼；建议先用小预算测细分场景……",
+         "size": 11, "color": GRAY, "space": 5},
+        {"text": "✅ 校验：回答中 11 个数字全部可溯源（citations）",
          "size": 11.5, "bold": True, "color": TEAL},
     ])
 

@@ -107,17 +107,13 @@
     <div id="mktResult"></div>
 
     <div class="card" id="mktAskCard" style="display:none">
-      <h3>追问 AI <small>基于本页已算好的指标作答，回答里的每个数字都会回指标层校验</small></h3>
+      <h3>追问 AI <small>基于本页指标作答，回答里的数字会回指标层核对</small></h3>
       <div class="toolbar">
         <input id="askInput" type="search" style="flex:1;min-width:320px"
-               placeholder="例如：我只有 5 万预算，适合做这个类目吗？">
+               placeholder="例如：这个类目的主要风险是什么？">
         <button class="btn primary" id="askRun">追问</button>
       </div>
       <div id="askResult"></div>
-      <p class="note">
-        模型只负责组织语言，数值全部来自指标层；作答后系统会抽出回答中的所有数字逐个回查，
-        找不到出处的会标红——<strong>不要求模型不撒谎，但要求它撒的谎能被抓住</strong>。
-      </p>
     </div>
   </section>
 

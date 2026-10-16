@@ -700,26 +700,16 @@ function renderAsk(data) {
   if (!data.answer) {
     return `<p class="note">${esc(data.note || '模型暂时不可用')}</p>`;
   }
-  const chip = (text, ok) => `<span class="chip ${ok ? 'ok' : 'bad'}">${esc(text)}</span>`;
+  // 正常情况下只留一个轻量标记；只有真的出现无法溯源的数字时才展开说明
+  const badge = data.verified
+    ? `<span class="chip ok">数字已核对（${(data.citations || []).length} 个）</span>`
+    : `<span class="chip bad">${data.unverified.length} 个数字无法溯源</span>`;
+  const detail = data.verified ? '' : `
+    <div class="note" style="color:#c0392b">
+      指标层找不到出处：${data.unverified.map((n) => `<code>${esc(n)}</code>`).join(' ')}
+    </div>`;
 
-  const trace = (data.citations || []).length
-    ? `<div class="note">✅ 可溯源数字（${data.citations.length} 个）：
-         ${data.citations.map((n) => `<code>${esc(n)}</code>`).join(' ')}</div>`
-    : '';
-  const bad = (data.unverified || []).length
-    ? `<div class="note" style="color:#c0392b">❌ 无法溯源的数字（${data.unverified.length} 个）：
-         ${data.unverified.map((n) => `<code>${esc(n)}</code>`).join(' ')}
-         —— 这些数字在指标层找不到出处</div>`
-    : '';
-
-  return `
-    <div class="badge-line">
-      ${chip('生成方式：' + data.generated_by, true)}
-      ${chip(data.verified ? '数字溯源校验：通过' : '数字溯源校验：发现可疑数字', data.verified)}
-    </div>
-    <p>${esc(data.answer)}</p>
-    ${trace}
-    ${bad}`;
+  return `<p>${esc(data.answer)}</p><div class="badge-line">${badge}</div>${detail}`;
 }
 
 async function runAsk() {
