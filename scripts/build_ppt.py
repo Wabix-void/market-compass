@@ -28,6 +28,7 @@ _force_utf8_console()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 OUT_PATH = PROJECT_ROOT / "docs" / "参赛材料" / "02-演示PPT.pptx"
+SHOTS_DIR = PROJECT_ROOT / "docs" / "参赛材料" / "shots"
 
 FONT = "微软雅黑"
 BLUE = RGBColor(0x2F, 0x6F, 0xEB)
@@ -465,7 +466,7 @@ def build() -> Path:
           "",
           "我们选择：公开数据 + 官方授权接口 + 用户授权导入，",
           "并把每次采集的合规判定写进审计台账，",
-          "答辩时可以直接回答「这条数据哪来的」。",
+          "这条审计链让「数据哪来的」永远有答案。",
           "",
           "代价是数据完整度不如灰产，收益是产品可以真的落地。"], accent=WARN)
     footer(slide, page)
@@ -499,6 +500,34 @@ def build() -> Path:
           "同名类目在演示/真实数据中歧义 → 解析优先真实源并支持切换",
           "搜「猫爬架」27 条里 26 条是无关推荐位商品 → 加相关性过滤",
           "官方 API 返回滚动销量 → 不能当累计值相减 → 新增独立口径"], accent=WARN)
+    footer(slide, page)
+
+    # ---------------- 9.5 产品界面实拍 ----------------
+    page += 1
+    slide = blank(prs)
+    slide_title(slide, "产品界面实拍",
+                "真实运行截屏，未经修饰 · 顶栏可见 AI 模式与数据窗口；"
+                "第 1 张含演示数据（全量视角），第 2、3 张为苏宁真实数据")
+    bottom = 1.55
+    for name, x, w in (
+        ("屏幕截图 2026-10-18 033450.png", 0.85, 5.75),   # 品类大盘
+        ("屏幕截图 2026-10-18 033541.png", 6.80, 5.75),   # 商品行情分析（保温杯）
+    ):
+        path = SHOTS_DIR / name
+        if not path.exists():
+            continue
+        pic = slide.shapes.add_picture(str(path), Inches(x), Inches(1.55), width=Inches(w))
+        bottom = max(bottom, 1.55 + pic.height / 914400)
+        try:
+            pic.line.color.rgb = LINE
+            pic.line.width = Pt(0.75)
+        except Exception:  # noqa: BLE001
+            pass
+
+    ask_path = SHOTS_DIR / "屏幕截图 2026-10-18 034001.png"
+    if ask_path.exists():
+        slide.shapes.add_picture(str(ask_path), Inches(0.85), Inches(bottom + 0.18),
+                                 width=Inches(11.2))
     footer(slide, page)
 
     # ---------------- 10 产业价值 ----------------
