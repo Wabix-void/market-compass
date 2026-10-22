@@ -3,6 +3,9 @@
 # 官方开放平台凭据（绝不提交）
 config/openapi.env
 
+# AI 接入配置（含用户密钥，绝不提交；模板见 config/llm.json.example）
+config/llm.json
+
 # 数据层（可由 scripts/bootstrap.py 与采集脚本重新生成）
 data/raw/
 data/*.db

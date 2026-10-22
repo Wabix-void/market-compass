@@ -19,7 +19,8 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from services.ai import advisor             # noqa: E402
-from services.ai.llm_provider import get_provider  # noqa: E402
+from services.ai import config_store        # noqa: E402
+from services.ai.llm_provider import get_provider, test_connection  # noqa: E402
 from services.analytics import market_analysis, queries      # noqa: E402
 from services.etl import pipeline           # noqa: E402
 
@@ -119,10 +120,39 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/advice/ask":
             self._handle_advice_ask(payload)
             return
+        if parsed.path == "/api/ai/test":
+            self._handle_ai_test(payload)
+            return
+        self._send_error_json("not found", status=404)
+
+    def do_PUT(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        length = int(self.headers.get("Content-Length") or 0)
+        raw = self.rfile.read(length).decode("utf-8") if length else "{}"
+        try:
+            payload = json.loads(raw or "{}")
+        except json.JSONDecodeError:
+            self._send_error_json("invalid json body")
+            return
+        if parsed.path == "/api/ai/config":
+            self._send_json(config_store.save(payload))
+            return
+        self._send_error_json("not found", status=404)
+
+    def do_DELETE(self) -> None:  # noqa: N802
+        parsed = urlparse(self.path)
+        if parsed.path == "/api/ai/credentials":
+            self._send_json(config_store.clear_credentials())
+            return
         self._send_error_json("not found", status=404)
 
     # ---------------- API 实现 ----------------
     def _handle_api(self, route: str, params: dict) -> None:
+        # AI 接入配置与数据库无关，先于连接处理
+        if route == "/api/ai/config":
+            self._send_json(config_store.public_view())
+            return
+
         category_id = params.get("category_id") or None
         try:
             days = int(params.get("days", 56))
@@ -273,6 +303,21 @@ class Handler(BaseHTTPRequestHandler):
             self._send_error_json(f"{type(exc).__name__}: {exc}", status=500)
         finally:
             conn.close()
+
+
+    def _handle_ai_test(self, payload: dict) -> None:
+        """测试连接：优先用面板中「尚未保存」的草稿值，缺失项回落到已保存配置。"""
+        protocol = str(payload.get("protocol") or "openai")
+        base_url = str(payload.get("base_url") or "").strip()
+        api_key = str(payload.get("api_key") or "").strip()
+        model = str(payload.get("model") or "").strip()
+
+        stored = config_store.effective()
+        base_url = base_url or stored["base_url"]
+        api_key = api_key or stored["api_key"]
+        model = model or stored["model"] or config_store.DEFAULT_MODEL
+
+        self._send_json(test_connection(protocol, base_url, api_key, model))
 
 
 def create_server(port: int = DEFAULT_PORT, host: str = "127.0.0.1") -> ThreadingHTTPServer:

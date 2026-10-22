@@ -18,7 +18,17 @@
   </div>
   <div class="badges">
     <span class="badge warn" id="demoBadge">演示数据（模拟）</span>
-    <span class="badge" id="llmBadge" title="正在检测大模型状态">AI 检测中…</span>
+    <div class="ai-menu-wrap">
+      <button class="badge" id="llmBadge" title="点击配置 AI 接入" aria-haspopup="true" aria-expanded="false">AI 检测中…</button>
+      <div class="ai-menu" id="aiMenu" hidden>
+        <div class="ai-menu-head">
+          <div class="ai-menu-title" id="aiMenuTitle">AI 状态</div>
+          <div class="ai-menu-sub" id="aiMenuSub">检测中…</div>
+        </div>
+        <button class="ai-menu-item" id="aiOpenSettings">⚙&nbsp; AI 接入设置</button>
+        <button class="ai-menu-item" id="aiQuickTest">🔌&nbsp; 测试当前连接</button>
+      </div>
+    </div>
     <span class="badge ghost" id="periodBadge">--</span>
   </div>
 </header>
@@ -258,6 +268,70 @@
   <span>商情罗盘 MarketCompass v0.1 · 设计阶段 MVP · 零第三方依赖运行</span>
   <span id="footerStatus">就绪</span>
 </footer>
+
+<!-- ============ AI 接入设置（BYOK：用户自带密钥） ============ -->
+<div class="modal-mask" id="aiModal" hidden>
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="aiModalTitle">
+    <div class="modal-body">
+      <div class="ai-head">
+        <h2 id="aiModalTitle">DeepSeek</h2>
+        <span class="ai-slug">deepseek-official</span>
+      </div>
+
+      <div class="field">
+        <div class="field-head">
+          <label for="aiKey">API 密钥</label>
+          <span class="help" tabindex="0" title="密钥仅保存在服务端，页面只回显掩码。">?</span>
+        </div>
+        <div class="key-row">
+          <input id="aiKey" type="password" placeholder="留空使用已保存凭证"
+                 autocomplete="off" spellcheck="false">
+          <button class="link-btn" id="aiClearKey" hidden>清除已保存凭证</button>
+        </div>
+        <p class="hint" id="aiKeyHint">密钥仅保存在服务端，页面只回显掩码。</p>
+      </div>
+
+      <hr>
+
+      <details class="fold" id="aiFold" open>
+        <summary><span class="chevron">▾</span>自定义设置</summary>
+        <div class="fold-body">
+          <div class="field">
+            <label>协议</label>
+            <div class="seg" role="group" aria-label="协议">
+              <button type="button" class="seg-btn active" data-proto="openai">OpenAI Chat Completions</button>
+              <button type="button" class="seg-btn" data-proto="anthropic">Anthropic Messages</button>
+            </div>
+          </div>
+          <div class="field">
+            <label for="aiBaseUrl">API 地址</label>
+            <input id="aiBaseUrl" type="url" placeholder="https://api.deepseek.com/v1" spellcheck="false">
+            <p class="hint" id="aiBaseHint">请填写兼容 OpenAI Chat Completions 协议的地址，通常以 /v1 结尾。</p>
+          </div>
+        </div>
+      </details>
+
+      <hr>
+
+      <div class="field">
+        <label>模型目录</label>
+        <p class="hint" id="aiModelStatus">正在使用适配器默认模型</p>
+        <div id="aiModelList"></div>
+        <button type="button" class="btn ghost add-model" id="aiAddModel">＋ 添加模型</button>
+      </div>
+
+      <p class="field-error" id="aiFormError" hidden></p>
+    </div>
+
+    <div class="modal-foot">
+      <button type="button" class="btn" id="aiTest">测试连接</button>
+      <span class="ai-test-result" id="aiTestResult"></span>
+      <span class="spacer"></span>
+      <button type="button" class="btn" id="aiCancel">取消</button>
+      <button type="button" class="btn primary" id="aiSave">保存</button>
+    </div>
+  </div>
+</div>
 
 <script src="app.js"></script>
 </body>

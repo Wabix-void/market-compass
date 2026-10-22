@@ -14,9 +14,12 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from typing import Protocol
+
+from services.ai import config_store
 
 
 def _read_env(name: str) -> str:
@@ -68,9 +71,15 @@ class OpenAICompatProvider:
 
     def __init__(self, base_url: str | None = None, api_key: str | None = None,
                  model: str | None = None, timeout: int = 60) -> None:
-        self.base_url = (base_url or _read_env("MARKETCOMPASS_LLM_BASE_URL")).rstrip("/")
-        self.api_key = api_key or _read_env("MARKETCOMPASS_LLM_API_KEY")
-        self.model = model or _read_env("MARKETCOMPASS_LLM_MODEL")
+        # 优先级：显式传参 > 界面配置（BYOK）> 环境变量 > 注册表
+        stored = config_store.effective()
+        self.base_url = (base_url or stored.get("base_url")
+                         or _read_env("MARKETCOMPASS_LLM_BASE_URL")).rstrip("/")
+        self.api_key = (api_key or stored.get("api_key")
+                        or _read_env("MARKETCOMPASS_LLM_API_KEY"))
+        self.model = (model or stored.get("model")
+                      or _read_env("MARKETCOMPASS_LLM_MODEL")
+                      or config_store.DEFAULT_MODEL)
         self.timeout = timeout
         self.name = f"openai-compat:{self.model or 'unset'}"
 
@@ -108,3 +117,76 @@ class OpenAICompatProvider:
 def get_provider() -> LLMProvider:
     provider = OpenAICompatProvider()
     return provider if provider.available() else NullProvider()
+
+
+# ---------------------------------------------------------------------------
+# 连接测试（供 BYOK 接入面板使用）
+# ---------------------------------------------------------------------------
+def _redact(text: str, api_key: str) -> str:
+    """把错误信息里的密钥替换掉，避免随响应回流到前端。"""
+    if not text:
+        return text
+    if api_key and api_key in text:
+        text = text.replace(api_key, f"{api_key[:3]}***")
+    return text
+
+
+def test_connection(protocol: str, base_url: str, api_key: str, model: str,
+                    timeout: int = 20) -> dict:
+    """用最小请求验证「地址 + 密钥 + 模型」是否可用。
+
+    返回 ``{ok, latency_ms, error?, detail?}``；detail 已脱敏。
+    """
+    if not base_url or not api_key:
+        return {"ok": False, "error": "缺少 API 地址或密钥"}
+
+    started = time.perf_counter()
+    base = base_url.rstrip("/")
+
+    if protocol == "anthropic":
+        url = f"{base}/v1/messages"
+        headers = {
+            "Content-Type": "application/json",
+            "x-api-key": api_key,
+            "anthropic-version": "2023-06-01",
+        }
+    else:
+        url = f"{base}/chat/completions"
+        headers = {
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {api_key}",
+        }
+
+    body = {"model": model, "max_tokens": 1,
+            "messages": [{"role": "user", "content": "hi"}]}
+    request = urllib.request.Request(
+        url, data=json.dumps(body).encode("utf-8"), headers=headers, method="POST")
+
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+        latency = round((time.perf_counter() - started) * 1000)
+        ok = isinstance(payload, dict) and ("choices" in payload or "content" in payload)
+        return {
+            "ok": ok,
+            "latency_ms": latency,
+            "error": None if ok else "响应格式不符合预期",
+            "detail": None if ok else _redact(
+                json.dumps(payload, ensure_ascii=False)[:400], api_key),
+        }
+    except urllib.error.HTTPError as exc:
+        code_map = {401: "密钥无效", 403: "无权限", 404: "地址或模型不存在", 429: "请求过于频繁"}
+        detail = ""
+        try:
+            detail = exc.read().decode("utf-8", errors="ignore")[:400]
+        except Exception:  # noqa: BLE001
+            pass
+        return {
+            "ok": False,
+            "error": code_map.get(exc.code, f"HTTP {exc.code}"),
+            "detail": _redact(detail, api_key),
+        }
+    except json.JSONDecodeError as exc:
+        return {"ok": False, "error": "响应不是合法 JSON", "detail": _redact(str(exc), api_key)}
+    except (urllib.error.URLError, TimeoutError, OSError) as exc:
+        return {"ok": False, "error": "请检查网络与地址", "detail": _redact(str(exc), api_key)}
