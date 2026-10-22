@@ -165,8 +165,8 @@ async function loadMeta() {
   const aiOnline = Boolean(meta.llm_provider) && !String(meta.llm_provider).includes('offline');
   const badge = $('#llmBadge');
   badge.textContent = aiOnline
-    ? '● AI 在线 · ' + String(meta.llm_provider).replace('openai-compat:', '')
-    : '○ AI 离线 · 模板模式';
+    ? '● AI 在线 · ' + String(meta.llm_provider).replace('openai-compat:', '') + ' ▾'
+    : '○ AI 离线 · 模板模式 ▾';
   badge.className = 'badge ' + (aiOnline ? 'ai-on' : 'ghost');
   badge.title = aiOnline
     ? '大模型已接入：' + meta.llm_provider +
@@ -934,6 +934,8 @@ function fillAiForm(config) {
   aiState.hasKey = Boolean(config.has_key);
   $('#aiKey').placeholder = config.has_key ? config.key_masked : '留空使用已保存凭证';
   $('#aiClearKey').hidden = !config.has_key;
+  // 未填界面配置时说明「为什么现在也能用」——否则用户会以为没接入
+  $('#aiNotice').hidden = Boolean(config.has_key);
   renderModelRows(config.models || []);
   aiState.dirty = false;
   setAiError('');

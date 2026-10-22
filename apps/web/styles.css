@@ -266,6 +266,32 @@ pre.evidence {
   font-size: 13px; color: var(--text); cursor: pointer; font-family: inherit;
 }
 .ai-menu-item:hover { background: var(--brand-soft); color: var(--brand); }
+.ai-menu-item .ai-menu-main { display: block; font-weight: 500; }
+.ai-menu-item .ai-menu-sub {
+  display: block; font-size: 12px; color: var(--muted); margin-top: 2px;
+}
+.ai-menu-item:hover .ai-menu-sub { color: var(--brand); opacity: .85; }
+
+.ai-intro {
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  background: var(--brand-soft);
+  border-radius: 10px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: #23405f;
+}
+.ai-notice {
+  margin: 0 0 14px;
+  padding: 9px 12px;
+  background: #fff7e6;
+  border: 1px solid #f5d9a8;
+  border-radius: 10px;
+  font-size: 12.5px;
+  line-height: 1.6;
+  color: #8a5a00;
+}
+.ai-notice[hidden] { display: none; }
 
 /* ===== 模态框 ===== */
 .modal-mask {
