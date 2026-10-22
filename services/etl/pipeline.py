@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import sqlite3
 from collections import defaultdict
 from datetime import datetime, timezone
@@ -45,6 +46,31 @@ TABLES = [
     "dim_product_cluster_map", "dim_product_cluster", "dim_product", "dim_category",
     "dim_platform", "dim_keyword", "ai_claim",
 ]
+
+
+# 常见品牌词：电商标题通常以品牌开头（如「炊大皇钛杯陶瓷保温杯…」）。
+# 公开搜索页只给 brand_id 拿不到品牌名，因此在 ETL 层从标题兜底推断，
+# 让「输入品牌名也能命中」这条能力真正成立（否则品牌解析形同虚设）。
+BRAND_KEYWORDS = (
+    "JEKO", "希乐", "炊大皇", "膳魔师", "THERMOS", "虎牌", "TIGER", "小米", "米家",
+    "苏泊尔", "SUPOR", "OBALL", "富光", "哈尔斯", "象印", "ZOJIRUSHI",
+    "乐扣", "LOCK&LOCK", "特百惠", "TUPPERWARE", "杯具熊", "BABLOV",
+    "物生物", "九阳", "美的", "南极人", "荣事达", "川岛屋", "摩登主妇",
+)
+
+_SHOP_PREFIX_RE = re.compile(r"^\s*(?:\[[^\]]*\]\s*)+")
+
+
+def _extract_brand(title: str | None) -> str | None:
+    """从商品标题推断品牌，先剥离「[官方旗舰店]」这类店铺前缀。"""
+    if not title:
+        return None
+    cleaned = _SHOP_PREFIX_RE.sub("", title).strip()
+    upper = cleaned.upper()
+    for brand in BRAND_KEYWORDS:
+        if upper.startswith(brand.upper()):
+            return brand
+    return None
 
 
 def connect(db_path: Path | str = DB_PATH) -> sqlite3.Connection:
@@ -124,7 +150,8 @@ def load_dimensions(conn: sqlite3.Connection, sources: list[str]) -> dict[str, i
         "(product_id, platform_id, title, brand, category_id, attrs_json, url, first_seen)"
         " VALUES (?,?,?,?,?,?,?,?)",
         [(
-            item["product_id"], item["platform_id"], item["title"], item["brand"],
+            item["product_id"], item["platform_id"], item["title"],
+            item["brand"] or _extract_brand(item["title"]),
             item["category_id"], json.dumps(item.get("attrs", {}), ensure_ascii=False),
             item.get("url"), item.get("first_seen"),
         ) for item in listings],

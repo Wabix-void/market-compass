@@ -209,6 +209,16 @@
       <p class="note">生成后会对每条引用指标<strong>重算比对</strong>，无法复现的结论一律拒绝输出。</p>
     </div>
     <div id="advResult"></div>
+
+    <div class="card" id="advAskCard" style="display:none">
+      <h3>追问 AI <small>基于上方建议报告作答，回答里的数字会回指标层核对</small></h3>
+      <div class="toolbar">
+        <input id="advAskInput" type="search" style="flex:1;min-width:320px"
+               placeholder="例如：这个预算下，我应该先做哪个细分类目？">
+        <button class="btn primary" id="advAskRun">追问</button>
+      </div>
+      <div id="advAskResult"></div>
+    </div>
   </section>
 
   <!-- ============ 合规审计 ============ -->

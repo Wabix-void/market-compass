@@ -116,6 +116,9 @@ class Handler(BaseHTTPRequestHandler):
         if parsed.path == "/api/ask":
             self._handle_ask(payload)
             return
+        if parsed.path == "/api/advice/ask":
+            self._handle_advice_ask(payload)
+            return
         self._send_error_json("not found", status=404)
 
     # ---------------- API 实现 ----------------
@@ -243,6 +246,29 @@ class Handler(BaseHTTPRequestHandler):
         try:
             self._send_json(advisor.answer_question(conn, query, question,
                                                     category_id=category_id))
+        except Exception as exc:  # noqa: BLE001
+            self._send_error_json(f"{type(exc).__name__}: {exc}", status=500)
+        finally:
+            conn.close()
+
+    def _handle_advice_ask(self, payload: dict) -> None:
+        """选品建议页的追问：事实来源是建议报告本身，数字同样做溯源校验。"""
+        question = str(payload.get("question") or "").strip()
+        if not question:
+            self._send_error_json("缺少参数 question")
+            return
+        category_id = str(payload.get("category_id") or "").strip() or None
+        try:
+            budget = float(payload.get("budget") or 150)
+        except (TypeError, ValueError):
+            budget = 150.0
+        risk = str(payload.get("risk") or "medium")
+        goal = str(payload.get("goal") or "选品")
+
+        conn = pipeline.connect()
+        try:
+            self._send_json(advisor.ask_advice(conn, question, category_id=category_id,
+                                               budget=budget, risk=risk, goal=goal))
         except Exception as exc:  # noqa: BLE001
             self._send_error_json(f"{type(exc).__name__}: {exc}", status=500)
         finally:

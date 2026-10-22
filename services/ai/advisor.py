@@ -696,11 +696,22 @@ _NUM_RE = re.compile(r"\d[\d,]*(?:\.\d+)?")
 
 
 def _collect_numbers(obj, out: list[float]) -> None:
-    """递归收集快照里的所有数值，形成「可溯源数值池」。"""
+    """递归收集 payload 里的所有数值，形成「可溯源数值池」。
+
+    注意：**字符串里的数字同样要收**。payload 中有大量文本字段
+    （结论摘要、建议动作、口径说明），其中的「价格带 150-250 元」这类数字
+    是模型可见的，模型复述它们属于合法引用，不能被判为编造。
+    """
     if isinstance(obj, bool):
         return
     if isinstance(obj, (int, float)):
         out.append(float(obj))
+    elif isinstance(obj, str):
+        for raw in _NUM_RE.findall(obj):
+            try:
+                out.append(float(raw.replace(",", "")))
+            except ValueError:
+                pass
     elif isinstance(obj, dict):
         for value in obj.values():
             _collect_numbers(value, out)
@@ -917,6 +928,66 @@ def answer_question(conn: sqlite3.Connection, query: str, question: str,
 
     check = verify_answer_numbers(payload, question, answer)
 
+    return {
+        "matched": True,
+        "answer": answer.strip(),
+        "generated_by": provider.name,
+        **check,
+    }
+
+
+def ask_advice(conn: sqlite3.Connection, question: str, category_id: str | None = None,
+               budget: float = 150.0, risk: str = "medium", goal: str = "选品") -> dict:
+    """基于「选品建议报告」的追问。
+
+    与行情追问的区别：这里的事实来源是**建议报告本身**（结论摘要、建议动作、
+    引用指标、风险提示），而不是单个品类的指标快照。数字溯源校验机制完全相同。
+    """
+    provider = get_provider()
+    report = advise(conn, category_id=category_id, budget=budget, risk=risk, goal=goal)
+
+    payload = {
+        "分析目标": report.get("category_name") or "全部类目",
+        "预算上限": budget,
+        "风险偏好": {"low": "保守", "medium": "中性", "high": "激进"}.get(risk, risk),
+        "决策目标": goal,
+        "数据窗口": report.get("period"),
+        "结论摘要": report.get("summary"),
+        "建议动作": [item.get("action") for item in (report.get("actions") or [])],
+        "风险提示": report.get("limitations"),
+        "引用指标": [
+            {"指标": item.get("note") or item.get("metric"), "数值": item.get("value")}
+            for item in (report.get("evidence") or [])
+        ],
+        "卖家的问题": question,
+    }
+
+    if not provider.available():
+        return {
+            "matched": True,
+            "answer": None,
+            "generated_by": provider.name,
+            "note": "追问功能需要配置大模型；建议生成与证据链校验不受影响。",
+        }
+
+    system = (
+        "你是电商选品顾问，正在回答卖家对一份选品建议报告的追问。\n"
+        "硬约束：只能使用给定数据中的数字，不得引入新数字、不得修改数值、不得预测具体销量。\n"
+        "表述要求：用中文指标名称，不要出现英文字段名（如 cr5、sps）。\n"
+        "回答要落到行动：卖家问「该不该做」「怎么切入」时，给出明确判断 + 依据 + 具体建议。\n"
+        "注意「风险提示」说明了数据局限，不要据此下绝对结论。\n"
+        "输出 3-4 句中文：先给结论，再给依据，最后给一条可执行建议。"
+    )
+    answer = provider.complete(system, json.dumps(payload, ensure_ascii=False))
+    if not answer:
+        return {
+            "matched": True,
+            "answer": None,
+            "generated_by": provider.name,
+            "note": "模型调用失败，请检查网络或凭据配置。",
+        }
+
+    check = verify_answer_numbers(payload, question, answer)
     return {
         "matched": True,
         "answer": answer.strip(),

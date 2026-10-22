@@ -445,10 +445,54 @@ async function runAdvisor() {
     });
     state.lastAdvice = report;
     renderReport(report, '#advResult');
+    showAdvAskCard();
     status('就绪');
   } catch (error) {
     $('#advResult').innerHTML = `<div class="card"><p class="neg">生成失败：${esc(error.message)}</p></div>`;
     status('生成失败');
+  }
+}
+
+function showAdvAskCard() {
+  $('#advAskCard').style.display = 'block';
+  $('#advAskResult').innerHTML = '';
+  $('#advAskInput').value = '';
+}
+
+async function runAdviceAsk() {
+  const question = $('#advAskInput').value.trim();
+  if (!question) {
+    $('#advAskResult').innerHTML = '<p class="note">请先输入你的问题</p>';
+    return;
+  }
+  status('模型作答并校验数字溯源…');
+  $('#advAskResult').innerHTML = `
+    <div class="ai-steps">
+      <span class="ai-step done">① 读取建议报告</span>
+      <span class="ai-step active">② 模型作答中…</span>
+      <span class="ai-step">③ 数字溯源校验</span>
+    </div>
+    <p class="note">依据上方建议报告作答；完成后会逐个核对回答中的数字。</p>`;
+
+  const startedAt = performance.now();
+  try {
+    const data = await api('/api/advice/ask', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        question,
+        category_id: $('#advCategory').value || null,
+        budget: Number($('#advBudget').value || 150),
+        risk: $('#advRisk').value,
+        goal: $('#advGoal').value,
+      }),
+    });
+    const elapsed = Math.round(performance.now() - startedAt);
+    $('#advAskResult').innerHTML = renderAsk(data) + renderAskTrace(data, elapsed);
+    status('就绪');
+  } catch (error) {
+    $('#advAskResult').innerHTML = `<p class="note">追问失败：${esc(error.message)}</p>`;
+    status('追问失败');
   }
 }
 
@@ -856,6 +900,8 @@ $('#rankQuery').addEventListener('keydown', (event) => { if (event.key === 'Ente
 $('#detailSearchBtn').addEventListener('click', () => searchProducts().catch(reportError));
 $('#detailQuery').addEventListener('keydown', (event) => { if (event.key === 'Enter') searchProducts().catch(reportError); });
 $('#advRun').addEventListener('click', runAdvisor);
+$('#advAskRun').addEventListener('click', runAdviceAsk);
+$('#advAskInput').addEventListener('keydown', (event) => { if (event.key === 'Enter') runAdviceAsk(); });
 $('#mktRun').addEventListener('click', runMarketAnalysis);
 $('#mktQuery').addEventListener('keydown', (event) => { if (event.key === 'Enter') runMarketAnalysis(); });
 // 用户手动改动输入内容时，解除之前锁定的标的，重新走文本解析
