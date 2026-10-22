@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from pathlib import Path
 
@@ -27,7 +28,11 @@ def _force_utf8_console() -> None:
 _force_utf8_console()
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-OUT_PATH = PROJECT_ROOT / "docs" / "参赛材料" / "02-演示PPT.pptx"
+# 输出路径可用环境变量覆盖：方便在 PPT 被 PowerPoint 占用时先生成到临时文件校验
+OUT_PATH = Path(os.environ.get(
+    "MARKETCOMPASS_PPT_OUT",
+    str(PROJECT_ROOT / "docs" / "参赛材料" / "02-演示PPT.pptx"),
+))
 SHOTS_DIR = PROJECT_ROOT / "docs" / "参赛材料" / "shots"
 
 FONT = "微软雅黑"
@@ -506,28 +511,31 @@ def build() -> Path:
     page += 1
     slide = blank(prs)
     slide_title(slide, "产品界面实拍",
-                "真实运行截屏，未经修饰 · 顶栏可见 AI 模式与数据窗口；"
-                "第 1 张含演示数据（全量视角），第 2、3 张为苏宁真实数据")
-    bottom = 1.55
-    for name, x, w in (
-        ("屏幕截图 2026-10-18 033450.png", 0.85, 5.75),   # 品类大盘
-        ("屏幕截图 2026-10-18 033541.png", 6.80, 5.75),   # 商品行情分析（保温杯）
-    ):
+                "真实运行截屏 · AI 选品参谋（能力栈 + 建议报告）/ BYOK 接入面板 / AI 接入入口")
+
+    def add_shot(name: str, x: float, y: float, width: float) -> None:
         path = SHOTS_DIR / name
         if not path.exists():
-            continue
-        pic = slide.shapes.add_picture(str(path), Inches(x), Inches(1.55), width=Inches(w))
-        bottom = max(bottom, 1.55 + pic.height / 914400)
+            return
+        picture = slide.shapes.add_picture(str(path), Inches(x), Inches(y), width=Inches(width))
         try:
-            pic.line.color.rgb = LINE
-            pic.line.width = Pt(0.75)
+            picture.line.color.rgb = LINE
+            picture.line.width = Pt(0.75)
         except Exception:  # noqa: BLE001
             pass
 
-    ask_path = SHOTS_DIR / "屏幕截图 2026-10-18 034001.png"
-    if ask_path.exists():
-        slide.shapes.add_picture(str(ask_path), Inches(0.85), Inches(bottom + 0.18),
-                                 width=Inches(11.2))
+    add_shot("ai-advisor.png", 0.75, 1.55, 6.8)   # 左：AI 选品参谋页（能力栈 + 报告）
+    add_shot("ai-byok.png", 7.75, 1.55, 3.0)      # 右上：BYOK 接入面板（竖图）
+    add_shot("ai-menu.png", 7.75, 5.10, 3.0)      # 右下：AI 接入入口（下拉菜单）
+
+    textbox(slide, 0.85, 5.55, 6.6, 1.3, [
+        {"text": "① 输入商品名 → 意图解析 → 指标罗列 → 带证据链的建议动作",
+         "size": 10.5, "color": DEEP, "space": 5},
+        {"text": "② 右上：填入自己的 API Key 即可接入，协议可选 OpenAI / Anthropic",
+         "size": 10.5, "color": DEEP, "space": 5},
+        {"text": "③ 右下：顶栏 AI 徽章下拉进入配置，支持连接测试与密钥掩码",
+         "size": 10.5, "color": DEEP},
+    ])
     footer(slide, page)
 
     # ---------------- 10 产业价值 ----------------
