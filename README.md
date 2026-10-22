@@ -17,6 +17,7 @@
 | 建议生成 | 数值与判断来自指标层；模型通过 `LLMProvider` 协议接入，可替换、可离线 | `services/ai/advisor.py` + `llm_provider.py` |
 | 证据链校验 | 结论回指标层**逐条重算复现**（容差 0.5%），任一失败即整体降级为"数据不足" | `services/ai/advisor.py` → `verify_evidence()` |
 | 数字溯源 | 追问回答中**每个数字**回指标层核对（容差 2%、百分比等价、指标编号剥离） | `services/ai/advisor.py` → `verify_answer_numbers()` |
+| **AI 接入（BYOK）** | 用户在界面填自己的 Key / 地址 / 模型，协议兼容 OpenAI 与 Anthropic；密钥只存服务端 | `services/ai/config_store.py` + `llm_provider.py` |
 | 同款对齐 | 字符 Jaccard 相似度聚类，跨平台同款归并 | `services/etl/pipeline.py` → `align_clusters()` |
 
 **三条设计原则**：① 模型不产出数值；② 每个数字都要能溯源；③ 模型不可用时功能降级而非崩溃。
