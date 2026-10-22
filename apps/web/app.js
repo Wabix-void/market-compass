@@ -169,9 +169,8 @@ async function loadMeta() {
     : '○ AI 离线 · 模板模式 ▾';
   badge.className = 'badge ' + (aiOnline ? 'ai-on' : 'ghost');
   badge.title = aiOnline
-    ? '大模型已接入：' + meta.llm_provider +
-      '\n模型只负责语言表达；所有数值与判断来自指标层与自研算法。'
-    : '未配置大模型：行情分析、指标计算与证据链校验照常工作，仅"追问"不可用。';
+    ? String(meta.llm_provider)
+    : '未配置大模型（行情分析、证据链校验照常工作）';
   $('#periodBadge').textContent = '数据窗口 ' + meta.period[0] + ' ~ ' + meta.period[1];
   $('#metricNote').textContent = meta.metric_note;
 }

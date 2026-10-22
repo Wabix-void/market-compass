@@ -21,7 +21,7 @@
     <div class="ai-menu-wrap">
       <!-- AI 接入入口：点这里展开下拉 → 「AI 接入设置」可填入自己的 API Key -->
       <button class="badge" id="llmBadge"
-              title="点击配置 AI 接入：可填入你自己的 API Key，无需改代码"
+              title="点击配置 AI 接入"
               aria-haspopup="true" aria-expanded="false">AI 检测中…</button>
       <div class="ai-menu" id="aiMenu" hidden>
         <div class="ai-menu-head">
@@ -30,11 +30,11 @@
         </div>
         <button class="ai-menu-item" id="aiOpenSettings">
           <span class="ai-menu-main">⚙ AI 接入设置</span>
-          <span class="ai-menu-sub">填入你自己的 API Key，无需改代码</span>
+          <span class="ai-menu-sub">填入你自己的 API Key</span>
         </button>
         <button class="ai-menu-item" id="aiQuickTest">
           <span class="ai-menu-main">🔌 测试当前连接</span>
-          <span class="ai-menu-sub">验证地址与密钥是否可用</span>
+          <span class="ai-menu-sub">检查连通性</span>
         </button>
       </div>
     </div>
@@ -286,12 +286,9 @@
         <h2 id="aiModalTitle">DeepSeek</h2>
         <span class="ai-slug">deepseek-official</span>
       </div>
-      <p class="ai-intro">
-        在这里填入你的 AI 服务密钥即可接入，<strong>无需修改任何代码</strong>。
-        密钥只保存在服务端，页面仅回显掩码。
-      </p>
+      <p class="ai-intro">填入你的 AI 服务密钥。</p>
       <div class="ai-notice" id="aiNotice" hidden>
-        当前未填写界面配置，系统正在使用环境变量中的凭证；填写后将优先使用这里的配置。
+        未填写界面配置，当前使用环境变量中的凭证。
       </div>
 
       <div class="field">
