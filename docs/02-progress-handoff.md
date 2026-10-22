@@ -49,11 +49,11 @@ C:\Users\wbx\.dsh\dsh-runtimes\dsh-primary-runtime\dependencies\python\python.ex
 |---|---|---|---|
 | 数据模型与建表 | `infra/sql/schema.sql` | bootstrap 建库 | ✅ |
 | 演示数据源（模拟公开信号） | `services/collector/seed_source.py` | bootstrap 采集 | ✅ 19 类目 / 195 标准品 / 356 条目 / 19,936 信号 |
-| ETL：清洗 + 跨平台同款对齐 + SPS 指标 | `services/etl/pipeline.py` | bootstrap + 冒烟测试 | ✅ 183 簇 / 115 跨平台 / 19,936 指标 |
+| ETL：清洗 + 跨平台同款对齐 + SPS 指标 | `services/etl/pipeline.py` | bootstrap + 冒烟测试 | ✅ 196 簇 / 115 跨平台 / 19,936 指标 |
 | 分析层查询 | `services/analytics/queries.py` | 冒烟测试 | ✅ |
 | 自由输入行情分析 | `services/analytics/market_analysis.py` | 冒烟测试 | ✅ 保温杯/露营装备/猫爬架/保鲜盒 全部命中 |
 | AI 报告 + 证据链重算校验 | `services/ai/advisor.py` | 冒烟测试 | ✅ 35/35 断言通过 |
-| REST API（标准库 HTTP） | `apps/api/server.py` | 冒烟测试 | ✅ 13 个接口 |
+| REST API（标准库 HTTP） | `apps/api/server.py` | 冒烟测试 | ✅ 19 个接口 |
 | 前端看板（原生 HTML/Canvas） | `apps/web/` | node --check 语法 + 6 页签对应 | ✅ |
 | 端到端冒烟测试 | `tests/smoke_test.py` | 实际运行 | ✅ 35/35 |
 
@@ -185,7 +185,7 @@ market-compass/
 │   └── 参赛材料/                            # 00 提交清单 / 01 作品简介 / 02 演示PPT
 │                                            # 03 视频脚本 / 04 补充说明 / 05 GitHub 指南
 ├── apps/
-│   ├── api/server.py                        # 13 个接口
+│   ├── api/server.py                        # 19 个接口
 │   └── web/{index.html,app.js,styles.css}   # 6 个页签
 ├── services/
 │   ├── collector/
