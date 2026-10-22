@@ -6,6 +6,21 @@
 
 **真实数据已跑通**：内置苏宁易购公开搜索结果页采集适配器，**两轮采集共 80 个真实商品入库**，全链路无需任何第三方依赖。
 
+## AI 技术栈速查（评委快速定位）
+
+本项目**不是"调用大模型接口"**，而是一套「模型可替换的语言层 + 自研算法层」。大模型只负责把已算好的指标组织成自然语言，**不产出任何数值与判断**。
+
+| 能力 | 自研内容 | 代码位置 |
+|---|---|---|
+| 意图解析 | 词典命中 + 字符 bigram Jaccard 评分（阈值 0.5） | `services/analytics/market_analysis.py` → `resolve()` |
+| 信号融合 | `SPS = 0.58·已售增量 + 0.24·评价反推 + 0.18·榜单分位`，五种口径 + 置信度上限 | `services/etl/pipeline.py` → `compute_metrics()` |
+| 建议生成 | 数值与判断来自指标层；模型通过 `LLMProvider` 协议接入，可替换、可离线 | `services/ai/advisor.py` + `llm_provider.py` |
+| 证据链校验 | 结论回指标层**逐条重算复现**（容差 0.5%），任一失败即整体降级为"数据不足" | `services/ai/advisor.py` → `verify_evidence()` |
+| 数字溯源 | 追问回答中**每个数字**回指标层核对（容差 2%、百分比等价、指标编号剥离） | `services/ai/advisor.py` → `verify_answer_numbers()` |
+| 同款对齐 | 字符 Jaccard 相似度聚类，跨平台同款归并 | `services/etl/pipeline.py` → `align_clusters()` |
+
+**三条设计原则**：① 模型不产出数值；② 每个数字都要能溯源；③ 模型不可用时功能降级而非崩溃。
+
 ## 快速开始
 
 无需安装任何第三方依赖（仅用 Python 标准库）：

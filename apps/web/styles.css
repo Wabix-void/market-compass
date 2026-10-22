@@ -178,3 +178,65 @@ pre.evidence {
   margin: 6px 0 0; padding: 10px 12px; background: #0f172a; color: #cfe0ff;
   border-radius: 8px; font-size: 12px; overflow-x: auto;
 }
+
+/* ===== AI 可见化：状态徽章 / 能力栈 / 执行过程 ===== */
+.badge.ai-on {
+  background: #12a5941a;
+  border-color: var(--teal);
+  color: var(--teal);
+  font-weight: 600;
+}
+
+.ai-stack { border-left: 3px solid var(--teal); }
+.ai-stack h3 small { font-weight: 400; color: var(--muted); }
+
+.ai-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: 10px;
+  margin-top: 10px;
+}
+.ai-item {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 10px 12px;
+  background: #fafcff;
+}
+.ai-item .ai-tag {
+  display: block;
+  font-weight: 600;
+  font-size: 13px;
+  color: var(--brand);
+  margin-bottom: 4px;
+}
+.ai-item p {
+  margin: 0 0 6px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--muted);
+}
+
+.ai-steps {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 10px 0 8px;
+  font-size: 12px;
+}
+.ai-step {
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  color: var(--muted);
+  background: #fff;
+}
+.ai-step.done {
+  border-color: #b9e6dd;
+  background: #e7f7f3;
+  color: var(--teal);
+}
+.ai-step.active {
+  border-color: var(--brand);
+  color: var(--brand);
+  background: var(--brand-soft);
+}

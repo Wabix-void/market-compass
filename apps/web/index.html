@@ -18,7 +18,7 @@
   </div>
   <div class="badges">
     <span class="badge warn" id="demoBadge">演示数据（模拟）</span>
-    <span class="badge" id="llmBadge">AI 模式：--</span>
+    <span class="badge" id="llmBadge" title="正在检测大模型状态">AI 检测中…</span>
     <span class="badge ghost" id="periodBadge">--</span>
   </div>
 </header>
@@ -160,6 +160,31 @@
 
   <!-- ============ AI 选品参谋 ============ -->
   <section id="sec-advisor" class="panel">
+    <div class="card ai-stack">
+      <h3>AI 能力栈 <small>自研算法 + 可插拔模型 —— 模型只负责措辞，不产出数值与判断</small></h3>
+      <div class="ai-grid">
+        <div class="ai-item">
+          <span class="ai-tag">① 意图解析</span>
+          <p>词典命中 + 字符 bigram 相似度评分，阈值 0.5</p>
+          <span class="chip ok">已跑通</span>
+        </div>
+        <div class="ai-item">
+          <span class="ai-tag">② 建议生成</span>
+          <p>数值全部取自指标层，模型仅组织语言（可替换 / 可离线）</p>
+          <span class="chip ok">已跑通</span>
+        </div>
+        <div class="ai-item">
+          <span class="ai-tag">③ 证据链校验</span>
+          <p>结论回指标层逐条重算复现，容差 0.5%，失败即整体降级</p>
+          <span class="chip ok">已跑通</span>
+        </div>
+        <div class="ai-item">
+          <span class="ai-tag">④ 数字溯源</span>
+          <p>追问回答中每个数字回指标层核对，无出处当场标红</p>
+          <span class="chip ok">已跑通</span>
+        </div>
+      </div>
+    </div>
     <div class="card">
       <h3>决策参数</h3>
       <div class="toolbar">

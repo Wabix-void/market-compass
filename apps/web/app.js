@@ -162,7 +162,16 @@ async function loadMeta() {
       select.appendChild(option);
     });
   });
-  $('#llmBadge').textContent = 'AI 模式：' + meta.llm_provider;
+  const aiOnline = Boolean(meta.llm_provider) && !String(meta.llm_provider).includes('offline');
+  const badge = $('#llmBadge');
+  badge.textContent = aiOnline
+    ? '● AI 在线 · ' + String(meta.llm_provider).replace('openai-compat:', '')
+    : '○ AI 离线 · 模板模式';
+  badge.className = 'badge ' + (aiOnline ? 'ai-on' : 'ghost');
+  badge.title = aiOnline
+    ? '大模型已接入：' + meta.llm_provider +
+      '\n模型只负责语言表达；所有数值与判断来自指标层与自研算法。'
+    : '未配置大模型：行情分析、指标计算与证据链校验照常工作，仅"追问"不可用。';
   $('#periodBadge').textContent = '数据窗口 ' + meta.period[0] + ' ~ ' + meta.period[1];
   $('#metricNote').textContent = meta.metric_note;
 }
@@ -724,7 +733,16 @@ async function runAsk() {
     return;
   }
   status('模型作答并校验数字溯源…');
-  $('#askResult').innerHTML = '<p class="note">模型正在作答，随后会逐个校验回答中的数字…</p>';
+  // 把「AI 在做什么」显式摊开：取数 → 作答 → 校验，而不是一个黑盒转圈
+  $('#askResult').innerHTML = `
+    <div class="ai-steps">
+      <span class="ai-step done">① 从指标层取快照</span>
+      <span class="ai-step active">② 模型作答中…</span>
+      <span class="ai-step">③ 数字溯源校验</span>
+    </div>
+    <p class="note">模型只组织语言，数值全部来自指标层；作答完成后会逐个核对回答中的数字。</p>`;
+
+  const startedAt = performance.now();
   try {
     const data = await api('/api/ask', {
       method: 'POST',
@@ -735,12 +753,31 @@ async function runAsk() {
         category_id: state.marketCategoryId || null,
       }),
     });
-    $('#askResult').innerHTML = renderAsk(data);
+    const elapsed = Math.round(performance.now() - startedAt);
+    $('#askResult').innerHTML = renderAsk(data) + renderAskTrace(data, elapsed);
     status('就绪');
   } catch (error) {
     $('#askResult').innerHTML = `<p class="note">追问失败：${esc(error.message)}</p>`;
     status('追问失败');
   }
+}
+
+/** 渲染「取数 → 作答 → 校验」三步轨迹，把 AI 的工作量变成可观察的数字。 */
+function renderAskTrace(data, elapsed) {
+  if (!data || !data.answer) return '';
+  const pool = data.metric_pool_size || 0;
+  const checked = (data.citations || []).length + (data.unverified || []).length;
+  const bad = (data.unverified || []).length;
+  const step3 = bad
+    ? `<span class="ai-step done">③ 溯源校验 ${checked} 个数字 · ${bad} 个可疑</span>`
+    : `<span class="ai-step done">③ 溯源校验 ${checked} 个数字 · 全部可追溯</span>`;
+  return `
+    <div class="ai-steps">
+      <span class="ai-step done">① 指标快照 ${pool} 个数值</span>
+      <span class="ai-step done">② 模型作答</span>
+      ${step3}
+      <span class="ai-step done">端到端 ${elapsed} ms</span>
+    </div>`;
 }
 
 /* ---------------- 合规审计 ---------------- */
